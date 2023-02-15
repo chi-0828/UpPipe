@@ -1,0 +1,1 @@
+cmd='autoheader;&&;autoconf;&&;/home/upmem0024/yuntse/kallisto_dpu/ext/htslib/configure;--prefix=;--disable-bz2;--disable-lzma;--disable-libcurl'
