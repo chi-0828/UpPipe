@@ -26,5 +26,6 @@ int main(int argc, char** argv) {
     else {
         ParseOptionsBuild(argc-1,argv+1,opt);
         KmerIndex *KI = new KmerIndex(opt);
+        KI->Build(opt);
     }
 }

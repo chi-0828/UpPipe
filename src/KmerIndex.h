@@ -13,7 +13,7 @@
 #include <unordered_map>
 #include <stdint.h>
 #include <ostream>
-//#include <map>
+#include <map>
 
 
 #include "common.h"
@@ -97,8 +97,12 @@ struct DBGraph {
 
 struct KmerIndex {
   
-  KmerIndex(const ProgramOptions& opt) : k(opt.k), num_trans(0), target_seqs_loaded(false) {}
-  ~KmerIndex() {}
+  KmerIndex(const ProgramOptions& opt) : dpu_n(opt.dpu_n), k(opt.k), num_trans(0), target_seqs_loaded(false), t_max(1), kmer_max(0) {
+	hash_tables = new std::vector<std::map<Kmer, std::vector<int16_t>>*>();
+  }
+  ~KmerIndex() {
+	delete hash_tables;
+  }
 
   void match(const char *s, int l, std::vector<std::pair<KmerEntry, int>>& v) const;
 //  bool matchEnd(const char *s, int l, std::vector<std::pair<int, int>>& v, int p) const;
@@ -108,8 +112,8 @@ struct KmerIndex {
 
 
 
-  void BuildTranscripts(const ProgramOptions& opt);
-  void BuildDeBruijnGraph(const ProgramOptions& opt, const std::vector<std::string>& seqs);
+  void Build(const ProgramOptions& opt);
+  void Buildhashtable(const std::vector<std::string>& seqs);
   void BuildEquivalenceClasses(const ProgramOptions& opt, const std::vector<std::string>& seqs);
   void FixSplitContigs(const ProgramOptions& opt, std::vector<std::vector<TRInfo>>& trinfos);
   bool fwStep(Kmer km, Kmer& end) const;
@@ -130,10 +134,11 @@ struct KmerIndex {
   std::pair<int,bool> findPosition(int tr, Kmer km, KmerEntry val, int p = 0) const;
   std::pair<int,bool> findPosition(int tr, Kmer km, int p) const;
 
+  int dpu_n;
   int k; // k-mer size used
   int num_trans; // number of targets
 
-  KmerHashTable<KmerEntry, KmerHash> kmap;
+  KmerHashTable<std::vector<int16_t>, KmerHash> kmap;
   EcMap ecmap;
   DBGraph dbGraph;
   std::unordered_map<std::vector<int>, int, SortedVectorHasher> ecmapinv;
@@ -151,6 +156,10 @@ struct KmerIndex {
   std::vector<std::vector<uint64_t>> table_kmer_buf;
   std::vector<std::vector<int64_t>> table_int_buf;
   std::vector<std::vector<int32_t>> round_buf;
+
+  std::vector<std::map<Kmer, std::vector<int16_t>>*>* hash_tables;
+  int t_max;
+  int kmer_max;
 };
 
 
