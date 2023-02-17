@@ -21,7 +21,8 @@ int main(int argc, char** argv) {
     ProgramOptions opt;
     if(argv[1] == "aligment") {
         ParseOptionsAligment(argc-1,argv+1,opt);
-        //KmerIndex *KI = new KmerIndex(opt);
+        KmerIndex *KI = new KmerIndex(opt);
+        KI->load(opt);
     }
     else {
         ParseOptionsBuild(argc-1,argv+1,opt);

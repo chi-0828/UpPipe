@@ -98,10 +98,10 @@ struct DBGraph {
 struct KmerIndex {
   
   KmerIndex(const ProgramOptions& opt) : dpu_n(opt.dpu_n), k(opt.k), num_trans(0), target_seqs_loaded(false), t_max(1), kmer_max(0) {
-	hash_tables = new std::vector<std::map<Kmer, std::vector<int16_t>>*>();
+	  hash_tables = new std::vector<std::map<Kmer, std::vector<int16_t>>*>();
   }
   ~KmerIndex() {
-	delete hash_tables;
+	  delete hash_tables;
   }
 
   void match(const char *s, int l, std::vector<std::pair<KmerEntry, int>>& v) const;
@@ -111,7 +111,7 @@ struct KmerIndex {
 
 
 
-
+  void hashtable_aligner();
   void Build(const ProgramOptions& opt);
   void Buildhashtable(const std::vector<std::string>& seqs);
   void BuildEquivalenceClasses(const ProgramOptions& opt, const std::vector<std::string>& seqs);
@@ -124,7 +124,7 @@ struct KmerIndex {
   
   // note opt is not const
   // load methods
-  void load(ProgramOptions& opt, bool loadKmerTable = true);
+  void load(ProgramOptions& opt);
   void loadTranscriptSequences() const;
   void loadECsFromFile(const ProgramOptions& opt);
   void loadTranscriptsFromFile(const ProgramOptions& opt);
@@ -150,16 +150,13 @@ struct KmerIndex {
   std::vector<std::string> target_seqs_; // populated on demand
   bool target_seqs_loaded;
 
-  std::vector<std::vector<size_t>> size_vec;
-  std::vector<std::vector<int64_t>> table_int_vec;
-  std::vector<std::vector<uint64_t>> table_kmer_vec;
-  std::vector<std::vector<uint64_t>> table_kmer_buf;
-  std::vector<std::vector<int64_t>> table_int_buf;
-  std::vector<std::vector<int32_t>> round_buf;
-
-  std::vector<std::map<Kmer, std::vector<int16_t>>*>* hash_tables;
-  int t_max;
-  int kmer_max;
+	std::vector<int32_t> kmer_max_buf;
+	std::vector<int32_t> t_max_buf;
+	std::vector<int32_t> k_buf;
+	std::vector<std::vector<uint64_t>> table_buf;
+	std::vector<std::map<Kmer, std::vector<int16_t>>*>* hash_tables;
+	int t_max;
+	int kmer_max;
 };
 
 

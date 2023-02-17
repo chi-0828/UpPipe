@@ -3,6 +3,9 @@
 
 #ifndef MAX_KMER_SIZE
 #define MAX_KMER_SIZE 32
+// A = 0, T = 1, C = 2, G = 3
+#define EMPTY_KMER 0XFFFFFFFFFFFFFFFFUL
+#define DELETE_KMER 0XFFFFFFFFFFFFFFFCUL
 #endif
 
 #include <stdio.h>
@@ -42,7 +45,7 @@ class Kmer {
   // post: b is true <==> the DNA strings in km1 and km2 are equal
   inline bool operator==(const Kmer& o) const {
     for (size_t i = 0; i < MAX_K/32; i++) {
-      if (longs[i] != o.longs[i]) {
+      if (longs != o.longs) {
         return false;
       }
     }
@@ -57,6 +60,7 @@ class Kmer {
   void set_kmer(const char *s);
 
   uint64_t hash() const;
+  uint64_t tobinary() const;
 
 
 
@@ -81,7 +85,7 @@ class Kmer {
   static const unsigned int MAX_K = MAX_KMER_SIZE;
   static unsigned int k;
 
-  uint64_t* get_kmer(){
+  uint64_t get_kmer(){
     return longs;
   }
 
@@ -91,10 +95,8 @@ class Kmer {
   static unsigned int k_modmask; // int?
 
   // data fields
-  union {
-    uint8_t bytes[MAX_K/4];
-    uint64_t longs[MAX_K/32];
-  };
+  uint64_t longs;
+
   // By default MAX_K == 64 so the union uses 16 bytes
   // However sizeof(Kmer) == 24
   // Are the 8 extra bytes alignment?
