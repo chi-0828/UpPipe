@@ -128,6 +128,7 @@ Kmer& Kmer::operator=(const Kmer& o) {
 }
 
 
+
 // use:  km = Kmer();
 // pre:
 // post: The last 2 bits in the bit array which stores the DNA string have been set to 11
@@ -160,26 +161,24 @@ bool Kmer::operator<(const Kmer& o) const {
 }
 
 
-
-
 // use:  km.set_kmer(s);
 // pre:  s[0],...,s[k-1] are all 'A','C','G' or 'T'
 // post: The DNA string in km is now equal to s
 void Kmer::set_kmer(const char *s)  {
   longs = 0X0UL;
-
+  // std::cerr << "set kmer: ";
   for (size_t i = 0; i < k; ++i) {
     assert(*s != '\0');
-
     switch(*s) {
-      case 'A': longs |= (0x00 << (2*i)); break;
-      case 'T': longs |= (0x01 << (2*i)); break;
-      case 'C': longs |= (0x02 << (2*i)); break;
-      case 'G': longs |= (0x03 << (2*i)); break;
+      case 'A': longs |= (0x00UL << (2*i)); break;
+      case 'T': longs |= (0x01UL << (2*i)); break;
+      case 'C': longs |= (0x02UL << (2*i)); break;
+      case 'G': longs |= (0x03UL << (2*i)); break;
     }
-
     s++;
   }
+  // std::cerr << "\n";
+  // std::cerr << longs << "\n";
 }
 
 uint64_t Kmer::tobinary() const {
@@ -332,6 +331,9 @@ Kmer Kmer::getLink(const size_t index) const {
 //       i.e. if the DNA string in km is 'ACGT' and c equals 'T' then
 //       the DNA string in fw is 'CGTT'
 Kmer Kmer::forwardBase(const char b) const {
+  // std::cerr << "forwardBase c: ";
+  // std::cerr << b << "\n";
+  // std::cerr << getBinary() << "\n" ;
   Kmer km(*this);
 
   km.longs = km.longs << 2;
@@ -341,7 +343,7 @@ Kmer Kmer::forwardBase(const char b) const {
       case 'C': km.longs |= (0x02UL); break;
       case 'G': km.longs |= (0x03UL); break;
     }
-
+  // std::cerr << km.getBinary() << "\n" ;
   return km;
 }
 
@@ -394,16 +396,15 @@ std::string Kmer::getBinary() const {
 // post: s[0,...,k-1] is the DNA string for the Kmer km and s[k] = '\0'
 void Kmer::toString(char *s) const {
   size_t i,j,l;
-
-  for (i = 0; i < k; i++) {
-    j = i % 32;
-    l = i / 32;
-
-    switch(((longs) >> (2*(31-j)) )& 0x03 ) {
-    case 0x00: *s = 'A'; ++s; break;
-    case 0x01: *s = 'C'; ++s; break;
-    case 0x02: *s = 'G'; ++s; break;
-    case 0x03: *s = 'T'; ++s; break;
+  for (i = k - 1; i >= 0; i--) {
+    uint64_t kmer = longs;
+    kmer = kmer >> (2*i);
+    //std::cerr << (kmer& 0x03) << " ";
+    switch( kmer & 0x03 ) {
+      case 0x00: *s = 'A'; ++s; break;
+      case 0x01: *s = 'T'; ++s; break;
+      case 0x02: *s = 'C'; ++s; break;
+      case 0x03: *s = 'G'; ++s; break;
     }
   }
 

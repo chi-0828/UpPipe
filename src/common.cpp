@@ -82,7 +82,7 @@ void ParseOptionsAligment(int argc, char **argv, ProgramOptions& opt) {
 }
 
 void ParseOptionsBuild(int argc, char **argv, ProgramOptions& opt) {
-  const char *opt_string = "i:d:k:f";
+  const char *opt_string = "i:d:k:f:";
   static struct option long_options[] = {
     // long args
     {"index", 1, NULL, 'i'},
@@ -112,11 +112,11 @@ void ParseOptionsBuild(int argc, char **argv, ProgramOptions& opt) {
         break;
     }
     case 'k': {
-        opt.worker_n = atoi(optarg);
+        opt.k = atoi(optarg);
         break;
     }
     case 'f': {
-        opt.output = optarg;
+        opt.transfasta = optarg;
         break;
     }
     default: 

@@ -98,7 +98,7 @@ struct DBGraph {
 struct KmerIndex {
   
   KmerIndex(const ProgramOptions& opt) : dpu_n(opt.dpu_n), k(opt.k), num_trans(0), target_seqs_loaded(false), t_max(1), kmer_max(0) {
-	  hash_tables = new std::vector<std::map<Kmer, std::vector<int16_t>>*>();
+	  hash_tables = new std::vector<std::map<Kmer, std::vector<int16_t>>>();
   }
   ~KmerIndex() {
 	  delete hash_tables;
@@ -154,7 +154,7 @@ struct KmerIndex {
 	std::vector<int32_t> t_max_buf;
 	std::vector<int32_t> k_buf;
 	std::vector<std::vector<uint64_t>> table_buf;
-	std::vector<std::map<Kmer, std::vector<int16_t>>*>* hash_tables;
+	std::vector<std::map<Kmer, std::vector<int16_t>>>* hash_tables;
 	int t_max;
 	int kmer_max;
 };

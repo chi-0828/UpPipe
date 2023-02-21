@@ -2,7 +2,7 @@
 #include <utility>
 #include "Kmer.hpp"
 #include "KmerIterator.hpp"
-
+#include <iostream>
 
 /* Note: That an iter is exhausted means that (iter._invalid == true) */
 

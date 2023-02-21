@@ -75,10 +75,7 @@ void KmerIndex::Build(const ProgramOptions& opt) {
   // read input
   std::unordered_set<std::string> unique_names;
   int k = opt.k;
-  for (auto& fasta : opt.transfasta) {
-    std::cerr << "[build] loading fasta file " << fasta
-              << std::endl;
-  }
+  std::cerr << "[build] loading fasta file " << opt.transfasta << std::endl;
   std::cerr << "[build] k-mer length: " << k << std::endl;
 
 
@@ -93,63 +90,63 @@ void KmerIndex::Build(const ProgramOptions& opt) {
   int countUNuc = 0;
   int polyAcount = 0;
 
-  for (auto& fasta : opt.transfasta) {
-    fp = gzopen(fasta.c_str(), "r");
-    seq = kseq_init(fp);
-    while (true) {
-      l = kseq_read(seq);
-      if (l <= 0) {
-        break;
-      }
-      seqs.emplace_back(seq->seq.s);
-      std::string& str = *seqs.rbegin();
-      auto n = str.size();
-      for (auto i = 0; i < n; i++) {
-        char c = str[i];
-        c = ::toupper(c);
-        if (c=='U') {
-          str[i] = 'T';
-          countUNuc++;
-        } else if (c !='A' && c != 'C' && c != 'G' && c != 'T') {
-          str[i] = Dna(gen()); // replace with pseudorandom string
-          countNonNucl++;
-        }
-      }
-      std::transform(str.begin(), str.end(),str.begin(), ::toupper);
 
-      if (str.size() >= 10 && str.substr(str.size()-10,10) == "AAAAAAAAAA") {
-        // clip off polyA tail
-        //std::cerr << "[index] clipping off polyA tail" << std::endl;
-        polyAcount++;
-        int j;
-        for (j = str.size()-1; j >= 0 && str[j] == 'A'; j--) {}
-        str = str.substr(0,j+1);
-      }
-
-    
-      target_lens_.push_back(seq->seq.l);
-      std::string name(seq->name.s);
-      size_t p = name.find(' ');
-      if (p != std::string::npos) {
-        name = name.substr(0,p);
-      }
-
-      if (unique_names.find(name) != unique_names.end()) {
-        for (int i = 1; ; i++) { // potential bug if you have more than 2^32 repeated names
-          std::string new_name = name + "_" + std::to_string(i);
-          if (unique_names.find(new_name) == unique_names.end()) {
-            name = new_name;
-            break;
-          }
-        }
-      }
-      unique_names.insert(name);
-      target_names_.push_back(name);
-
+  fp = gzopen(opt.transfasta.c_str(), "r");
+  seq = kseq_init(fp);
+  while (true) {
+    l = kseq_read(seq);
+    if (l <= 0) {
+      break;
     }
-    gzclose(fp);
-    fp=0;
+    seqs.emplace_back(seq->seq.s);
+    std::string& str = *seqs.rbegin();
+    auto n = str.size();
+    for (auto i = 0; i < n; i++) {
+      char c = str[i];
+      c = ::toupper(c);
+      if (c=='U') {
+        str[i] = 'T';
+        countUNuc++;
+      } else if (c !='A' && c != 'C' && c != 'G' && c != 'T') {
+        str[i] = Dna(gen()); // replace with pseudorandom string
+        countNonNucl++;
+      }
+    }
+    std::transform(str.begin(), str.end(),str.begin(), ::toupper);
+
+    if (str.size() >= 10 && str.substr(str.size()-10,10) == "AAAAAAAAAA") {
+      // clip off polyA tail
+      //std::cerr << "[index] clipping off polyA tail" << std::endl;
+      polyAcount++;
+      int j;
+      for (j = str.size()-1; j >= 0 && str[j] == 'A'; j--) {}
+      str = str.substr(0,j+1);
+    }
+
+  
+    target_lens_.push_back(seq->seq.l);
+    std::string name(seq->name.s);
+    size_t p = name.find(' ');
+    if (p != std::string::npos) {
+      name = name.substr(0,p);
+    }
+
+    if (unique_names.find(name) != unique_names.end()) {
+      for (int i = 1; ; i++) { // potential bug if you have more than 2^32 repeated names
+        std::string new_name = name + "_" + std::to_string(i);
+        if (unique_names.find(new_name) == unique_names.end()) {
+          name = new_name;
+          break;
+        }
+      }
+    }
+    unique_names.insert(name);
+    target_names_.push_back(name);
+
   }
+  gzclose(fp);
+  fp=0;
+  
 
   if (polyAcount > 0) {
     std::cerr << "[build] warning: clipped off poly-A tail (longer than 10)" << std::endl << "        from " << polyAcount << " target sequences" << std::endl;
@@ -182,16 +179,16 @@ void KmerIndex::hashtable_aligner() {
 	std::cerr << "[build] align table size  ... "; std::cerr.flush();
 	roundup_4(t_max);
 	for(auto& table: *hash_tables) {
-		for(auto& entry: *table) {
+		for(auto& entry: table) {
 			while(entry.second.size() < t_max) {
 				entry.second.push_back(-1);
 			}
 		}
-		if(table->size() < kmer_max) {
-			std::vector<int16_t> tmp(t_max, -1);
+		if(table.size() < kmer_max) {
+			std::vector<int16_t> tmp_tran(t_max, -1);
 			Kmer tmp_kmer; 
 			tmp_kmer.set_empty();
-			table->insert(std::make_pair(tmp_kmer,-1));
+			table.insert(std::make_pair(tmp_kmer, tmp_tran));
 		}
 	}
 	std::cerr << " done " << std::endl;
@@ -203,19 +200,21 @@ void KmerIndex::Buildhashtable(const std::vector<std::string>& seqs) {
 	// #seqs in a group = ((#seqs)/(#dpu in a pipeline worker))
 	uint32_t seq_in_group = seqs.size() / dpu_n;
 	uint32_t remain = seqs.size() % dpu_n;
-	int i = 0;
+	int16_t i = 0;
+  Kmer::set_k(k);
 	for (int d = 0; d < dpu_n; d++) {
 		uint32_t seq_n = (d < remain) ? seq_in_group + 1 : seq_in_group;
-		std::map<Kmer, std::vector<int16_t>>* group_hash = new std::map<Kmer, std::vector<int16_t>>();
-		for (; i < seq_n; i++) {
+		std::map<Kmer, std::vector<int16_t>> group_hash;
+		for (; i < (int16_t)seq_n; i++) {
 			const char *s = seqs[i].c_str();
-			KmerIterator kit(s),kit_end;
+			KmerIterator kit(s), kit_end;
+      //std::cerr << seqs[i].c_str() << "\n";
 			for (; kit != kit_end; ++kit) {
-				auto found = group_hash->find(kit->first);
-				if(found != group_hash->end()) {
-					std::vector<int16_t> tmp;
-					tmp.push_back(i);
-					group_hash->insert(std::make_pair(kit->first, tmp));
+        //std::cerr << kit->first.toString() << "--";
+				auto found = group_hash.find(kit->first);
+				if(found == group_hash.end()) {
+					std::vector<int16_t> tmp(1, i);
+					group_hash.insert(std::make_pair(kit->first, tmp));
 				}
 				else {
 					found->second.push_back(i);
@@ -225,29 +224,32 @@ void KmerIndex::Buildhashtable(const std::vector<std::string>& seqs) {
 			}
 		}
 		hash_tables->push_back(group_hash);
-		if(group_hash->size() > kmer_max)
-			kmer_max = group_hash->size();
-		delete group_hash;
+		if(group_hash.size() > kmer_max)
+			kmer_max = group_hash.size();
   }
   std::cerr << " done " << std::endl;
 }
 
 void KmerIndex::write(const std::string& index_out, bool writeKmerTable) {
+  std::cerr << "[build] write hash table to \"" << index_out << "\" ... "; std::cerr.flush();
 	std::ofstream out;
 	out.open(index_out, std::ios::out | std::ios::binary);
 
 	if (!out.is_open()) {
 		// TODO: better handling
-		std::cerr << "Error: index output file could not be opened!";
+		std::cerr << "Error: index output file \"" << index_out << "\" could not be opened!\n";
 		exit(1);
 	}
 
 	// write k
 	out.write((char *)&k, sizeof(k));
+  //std::cerr << k << "\n";
 
 	// write hash table size
 	out.write((char *)&t_max, sizeof(t_max));
 	out.write((char *)&kmer_max, sizeof(kmer_max));
+  //std::cerr << t_max << "\n";
+  //std::cerr << kmer_max << "\n";
 
 	// write number of dpus
 	out.write((char *)&dpu_n, sizeof(dpu_n));
@@ -255,7 +257,7 @@ void KmerIndex::write(const std::string& index_out, bool writeKmerTable) {
 	// build & write hash table and  
 	for(auto& table: *hash_tables) {
 		// bulid 
-		for(auto& entry: *table) {
+		for(auto& entry: table) {
 			kmap.insert(std::make_pair(entry.first, entry.second));
 		}
 		// write 
@@ -271,6 +273,7 @@ void KmerIndex::write(const std::string& index_out, bool writeKmerTable) {
 	}
 	out.flush();
 	out.close();
+  std::cerr << " done " << std::endl;
 }
 
 bool KmerIndex::fwStep(Kmer km, Kmer& end) const {
@@ -319,6 +322,7 @@ bool KmerIndex::fwStep(Kmer km, Kmer& end) const {
 }
 
 void KmerIndex::load(ProgramOptions& opt) {
+  std::cerr << "[load] loading index file " << opt.index << " ... ";
 	std::string& index_in = opt.index;
 	std::ifstream in;
 
@@ -327,7 +331,7 @@ void KmerIndex::load(ProgramOptions& opt) {
 
 	if (!in.is_open()) {
 		// TODO: better handling
-		std::cerr << "Error: index input file could not be opened!";
+		std::cerr << "Error: index input file could not be opened!\n";
 		exit(1);
 	}
 
@@ -375,6 +379,8 @@ void KmerIndex::load(ProgramOptions& opt) {
 		t_max_buf = std::vector<int32_t>(dpu_n, t_max);
 		k_buf = std::vector<int32_t>(dpu_n, k);
 	}
+  in.close();
+  std::cerr << " done " << std::endl;
 }
 
 

@@ -14,7 +14,7 @@ struct ProgramOptions {
   std::string index;
   int k;
   std::string output;
-  std::vector<std::string> transfasta;
+  std::string transfasta;
   bool single_end;
   std::string chromFile;
   std::string ecFile;
