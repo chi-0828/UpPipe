@@ -1,4 +1,3 @@
-#include "dpu.h"
 #include "dpu_def.h"
 #include "hash.h"
 #include <mram.h>

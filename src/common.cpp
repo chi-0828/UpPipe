@@ -38,20 +38,20 @@ std::string pretty_num(size_t num) {
 }
 
 void ParseOptionsAligment(int argc, char **argv, ProgramOptions& opt) {
-  const char *opt_string = "i:d:r:o:";
+  const char *opt_string = "i:d:r:o:f:";
   static struct option long_options[] = {
     // long args
     {"index", 1, NULL, 'i'},
     {"dpu", 1, NULL, 'd'},
     {"worker", 1, NULL, 'r'},
     {"output", 1, NULL, 'o'},
+    {"read_file", 1, NULL, 'f'},
     { NULL, 0, NULL, 0}
   };
   int c;
   int option_index = 0;
   while (true) {
     c = getopt_long(argc, argv, opt_string, long_options, NULL);
-    //std::cerr << (char)c << " " << optarg << "\n";
     if (c == -1) {
         break;
     }
@@ -75,6 +75,10 @@ void ParseOptionsAligment(int argc, char **argv, ProgramOptions& opt) {
         opt.output = optarg;
         break;
     }
+    case 'f': {
+        opt.readFile = optarg;
+        break;
+    }
     default: 
         break;
     }
@@ -88,7 +92,7 @@ void ParseOptionsBuild(int argc, char **argv, ProgramOptions& opt) {
     {"index", 1, NULL, 'i'},
     {"dpu", 1, NULL, 'd'},
     {"kmer", 1, NULL, 'k'},
-    {"fasta", 1, NULL, 'f'},
+    {"read_file", 1, NULL, 'f'},
     {NULL, 0, NULL, 0}
   };
   int c;

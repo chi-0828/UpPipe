@@ -15,17 +15,14 @@ struct ProgramOptions {
   int k;
   std::string output;
   std::string transfasta;
-  bool single_end;
-  std::string chromFile;
+  std::string readFile;
   std::string ecFile;
   std::string transcriptsFile;
-  std::string genemap;
 
 ProgramOptions() :
   k(31),
   dpu_n(60),
-  worker_n(32),
-  single_end(true)
+  worker_n(32)
   {}
 };
 

@@ -9,20 +9,29 @@
 #include <time.h>
 #include <algorithm>
 #include <limits>
-#include "KmerIndex.h"
-#include "common.h"
 #include <cstdio>
 #include <zlib.h>
+#include "KmerIndex.h"
+#include "common.h"
+#include "Core.h"
 
 using namespace std;
 
 
 int main(int argc, char** argv) {
     ProgramOptions opt;
+    if(argc < 2) {
+        std::cerr << "Please choose the option: UpPipe {build, alignment} args\n";
+        return 0;
+    }
     if(strcmp(argv[1], "alignment") == 0) {
         ParseOptionsAligment(argc-1,argv+1,opt);
         KmerIndex *KI = new KmerIndex(opt);
         KI->load(opt);
+
+        Core* core = new Core(opt.worker_n, opt.dpu_n, KI, opt.readFile);
+        
+        delete core;
         delete KI;
     }
     else if (strcmp(argv[1], "build") == 0) {
@@ -32,7 +41,7 @@ int main(int argc, char** argv) {
         delete KI;
     }
     else {
-        std::cerr << "Please choose the option {build, alignment}\n";
+        std::cerr << "Please choose the option: UpPipe {build, alignment} args\n";
     }
 
     return 0;
