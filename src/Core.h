@@ -5,46 +5,46 @@
 #include <vector>
 #include <iostream>
 #include <sstream>
+#include <mutex>
 #include <ctype.h>
 #include <zlib.h>
+#include <deque>
 #include "KmerIndex.h"
 #include "kseq.h"
 #include "Threadpool.h"
 
+using Read_packet = std::vector<std::string>;
+Read_packet get();
 
 class Pipeline_worker {
 public:
-    Pipeline_worker(int dpu_n, KmerIndex *KI, std::vector<std::string> &seqs) : dpu_n(dpu_n), KI(KI), seqs(seqs){
+    Pipeline_worker(int dpu_n, KmerIndex *KI) : dpu_n(dpu_n), KI(KI) {
+        transfer_to_dpu_buf = new std::deque<Read_packet>(dpu_n);
+        transfer_from_dpu_buf = new std::deque<Read_packet>(dpu_n);
+    }
 
+    ~Pipeline_worker() {
+        delete transfer_to_dpu_buf;
+        delete transfer_from_dpu_buf;
     }
 
     KmerIndex *KI;
-    std::vector<std::string> seqs;
     int dpu_n;
-
     void map();
+
+    std::deque<Read_packet> *transfer_to_dpu_buf;
+    std::deque<Read_packet> *transfer_from_dpu_buf;
 };
 
 class Core {
 public:
     Core(int pw_n, int dpu_n, KmerIndex *KI, std::string &readFile) : pw_n(pw_n), dpu_n(dpu_n), KI(KI), readFile(readFile) {
-        read_rna_file(readFile);
 
         pool = new ThreadPool(pw_n);
         pw = new Pipeline_worker*[pw_n];
         // calling constructor
-        int start = 0;
-        int end = -1;
-        int n = seqs.size() / pw_n;
-        int r = seqs.size() % pw_n;
         for (int i = 0; i < pw_n; i++) {
-            // allocate RNA reads to pipeline workers
-            start = end + 1;
-            end = (i < r) ? (start + n + 1) : (start + n);
-            std::vector<std::string>::const_iterator first = seqs.begin() + start;
-            std::vector<std::string>::const_iterator last = seqs.begin() + end;
-            std::vector<std::string> seq_tmp(first, last);
-            pw[i] = new Pipeline_worker(dpu_n, KI, seq_tmp);
+            pw[i] = new Pipeline_worker(dpu_n, KI);
         }
 
         allocate_pipeline_worker();
@@ -57,7 +57,6 @@ public:
     int dpu_n; // number of DPUs in a pipeline worker
     KmerIndex *KI;
     std::string readFile;
-    std::vector<std::string> seqs;
     ThreadPool *pool;
     Pipeline_worker **pw;
 
