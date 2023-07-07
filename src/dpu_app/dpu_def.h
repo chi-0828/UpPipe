@@ -16,4 +16,10 @@ typedef struct dpu_args {
     int run;
 }dpu_args;
 
+typedef struct dpu_result{
+    int T[18];
+    int len;
+    int kmer;
+}dpu_result;
+
 #endif
