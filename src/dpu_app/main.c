@@ -13,14 +13,14 @@ __mram_noinit char reads[MAX_PACKET_SIZE];
 __mram_noinit int64_t result_2_read[MAX_PACKET_SIZE];
 __mram_noinit int64_t result_id[MAX_PACKET_SIZE];
 __mram_noinit int64_t result_pos[MAX_PACKET_SIZE];
-__host int result_len[MAX_READ_N];
+__host int result_len[PACKET_SIZE];
 
 // 60 MB hash table (from hsot)
 __mram_noinit int64_t table_int[MAX_table_n];
 __mram_noinit uint64_t table_kmer[MAX_table_n];
 
 // read info (from hsot)
-__host int32_t reads_len[MAX_READ_N];
+__host int32_t reads_len[PACKET_SIZE];
 __host int32_t read_n;
 __host size_tt size_;
 
@@ -155,39 +155,6 @@ int main(){
 
   // init
   unsigned int tasklet_id = me();
-  if(tasklet_id == 0){
-    read_n = read_n < MAX_READ_N ? read_n : MAX_READ_N;
-    matched_size = 0;
-    head = 0;
-  }
-  barrier_wait(&my_barrier);
-  
-  
-  int read_per_tasklet = (read_n / NR_TASKLETS);
-  int remain_read_num = (read_n % NR_TASKLETS);
-  int new_read_n = 0;
-  int read_start = 0;
-  {
-    int reads_start[NR_TASKLETS];
-    int reads_end[NR_TASKLETS];
-    int start = 0;
-    int end = 0;
-    for(int i = 0; i < NR_TASKLETS; i++){
-      if(i < remain_read_num){
-        reads_start[i] = start;
-        reads_end[i] = start+read_per_tasklet+1;
-        start = reads_end[i];
-      }
-      else{
-        reads_start[i] = start;
-        reads_end[i] = start+read_per_tasklet;
-        start = reads_end[i];
-      }
-    }
-    new_read_n = reads_end[tasklet_id];
-    read_start = reads_start[tasklet_id];
-  }
-  
 
   
   // read out the hash table
@@ -198,13 +165,13 @@ int main(){
   kmap.table_kmer_ptr = table_kmer;
 
   // rseult cahce
-  int64_t *vint = result_id_tasklet[tasklet_id];
-  int64_t *vpos= result_pos_tasklet[tasklet_id];
-  v_16len[tasklet_id] = 0;
-  int v_matched = 0;
-  int v_len = v_16len[tasklet_id];
+//   int64_t *vint = result_id_tasklet[tasklet_id];
+//   int64_t *vpos= result_pos_tasklet[tasklet_id];
+//   v_16len[tasklet_id] = 0;
+//   int v_matched = 0;
+//   int v_len = v_16len[tasklet_id];
 
-  for(int readid = read_start ; readid < new_read_n; readid++){
+  for(int readid = tasklet_id ; readid < read_n; readid+=NR_TASKLETS){
 
     // read out the read from mram
     int len = reads_len[readid];
@@ -213,72 +180,16 @@ int main(){
     int start2 = RoundDown(&start);
     int shift_count = start - start2;
     mram_read(reads+(start), read_cache, 160);
+	printf("%d read = %s\n", readid, read_cache);
+    // // record the previous matched count 
+    // int matched_count_read = matched_size_tasklet[tasklet_id];
 
-    // record the previous matched count 
-    int matched_count_read = matched_size_tasklet[tasklet_id];
+    // // iterate each read
+    // v_matched = match(readid, read_cache, shift_count, len, &kmap, vint, vpos, tasklet_id, result_id, result_pos);
 
-    // iterate each read
-    v_matched = match(readid, read_cache, shift_count, len, &kmap, vint, vpos, tasklet_id, result_id, result_pos);
-
-    // get matched count of this read
-    matched_count_read = (matched_size_tasklet[tasklet_id] - matched_count_read);
-    result_len[readid] = matched_count_read;
+    // // get matched count of this read
+    // matched_count_read = (matched_size_tasklet[tasklet_id] - matched_count_read);
+    // result_len[readid] = matched_count_read;
   }
-
-  //matched_size_tasklet[tasklet_id] = v_matched;
-
-  // barrier_wait(&my_barrier);
-  // if(tasklet_id == NR_TASKLETS-1){
-  //   if(last_round){
-  //     __dma_aligned int64_t head_tmp = 0;
-  //     mram_write(&head_tmp, &result_head, 8);
-  //   }
-  //   else{
-  //     __dma_aligned int64_t head_tmp = (int64_t)matched_size;
-  //     mram_write(&head_tmp, &result_head, 8);
-  //   }
-  // }
-
-  // assmble all tasklets
-  // if(tasklet_id == NR_TASKLETS-1){
-    
-  //   __dma_aligned int64_t head = 0;
-  //   mram_read(&result_head, &head, 8);
-
-  //   for(int tid = 0; tid < NR_TASKLETS; tid ++){
-      
-  //     __dma_aligned int64_t *vint_tmp =  result_id_tasklet[tid];
-  //     __dma_aligned int64_t *vpos_tmp =  result_pos_tasklet[tid];
-  //     int matched_tmp = matched_size_tasklet[tid];
-  //     assert(matched_tmp >= 0);
-
-  //     // 256 * sizeof(int64_t) = 2048 byte 
-  //     int byte_round = ((matched_tmp)/256);
-  //     int remain_round = ((matched_tmp)%256);
-  //     int v_head = 0;
-  //     for(int r = 0; r < byte_round; r++){
-  //       mram_write(vint_tmp + v_head, result_id + head, 2048);
-  //       mram_write(vpos_tmp + v_head, result_pos + head, 2048);
-  //       v_head += 256;
-  //       head += (256);
-  //     }
-  //     if(remain_round != 0){
-  //       mram_write(vint_tmp + v_head, result_id + head, remain_round*8);
-  //       mram_write(vpos_tmp + v_head, result_pos + head, remain_round*8);
-  //       head += (remain_round);
-  //     }
-  //   }
-  //   matched_size = head;
-
-  //   if(last_round){
-  //     __dma_aligned int64_t head_tmp = 0;
-  //     mram_write(&head_tmp, &result_head, 8);
-  //   }
-  //   else{
-  //     __dma_aligned int64_t head_tmp = matched_size;
-  //     mram_write(&head_tmp, &result_head, 8);
-  //   }
-  // }
-
   return 0;
 }

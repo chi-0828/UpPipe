@@ -1,15 +1,13 @@
-target = dpu
 INCLUDE := -I.
 LDFLAGS := 
 CFLAGS := -O3
+OBJ := ../../obj/dpu_app/
+target = $(OBJ)dpu
 CC := dpu-upmem-dpurte-clang -DNR_TASKLETS=$(TASKLETS)
 
-$(target): hash.o dpu.o main.c
+$(target): $(OBJ)hash.o $(OBJ)dpu.o main.c
 	$(CC) -o $(target) $^ $(LDFLAGS) $(CFLAGS)
-hash.o : hash.c
-	$(CC) -c hash.c $(CFLAGS) $(INCLUDE)
-dpu.o : dpu.c
-	$(CC) -c dpu.c $(CFLAGS) $(INCLUDE)
-
-clean: 
-	rm -f dpu *.o
+$(OBJ)hash.o : hash.c
+	$(CC) -o $(OBJ)hash.o -c hash.c $(CFLAGS) $(INCLUDE)
+$(OBJ)dpu.o : dpu.c
+	$(CC) -o $(OBJ)dpu.o -c dpu.c $(CFLAGS) $(INCLUDE)

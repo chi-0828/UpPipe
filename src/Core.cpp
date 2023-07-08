@@ -24,7 +24,6 @@ Read_packet get(bool &end) {
 
     while(RNA_read_pool.empty() && !RNA_read_pool.get_end()) ;
     
-    s
     if(RNA_read_pool.get_end()) {
         rp = Read_packet(0);
         end = true;
@@ -50,6 +49,18 @@ void insert(Partial_result &pr) {
 }
 
 // pipeline worker 
+void Pipeline_worker::operator()(int n, KmerIndex *ki) {
+    dpu_n = n;
+    KI = ki;
+    transfer_to_dpu_buf = new std::deque<Read_packet>(dpu_n, Read_packet(0));
+    dpu_result tmp;
+    tmp.kmer = 0;
+    Partial_result pr_tmp(PACKET_SIZE, tmp);
+    transfer_from_dpu_buf = new std::vector<Partial_result>(dpu_n, pr_tmp);
+    partial_result_buf = new std::deque<Partial_result>(dpu_n, pr_tmp);
+    map();
+}
+
 Partial_result Pipeline_worker::compare() {
     for(int i = 0; i < dpu_n; i++) {
         for(int j = 0; j < PACKET_SIZE; j++) {
@@ -70,20 +81,26 @@ Partial_result Pipeline_worker::compare() {
 void Pipeline_worker::map() {
     std::cerr << "[DPU] allocating " << dpu_n << " DPUs" << std::endl;
     auto DPUs = DpuSet::allocate(dpu_n);
+    auto dpu = DPUs.dpus();
+    std::cerr << "[DPU] loading " << DPU_PROGRAM << std::endl;
+    DPUs.load(DPU_PROGRAM);
 
     // pipeline management
     int stage = 0;
     bool end = false;
     while(stage <= dpu_n) {
+        // std::cerr << "[pipe] stage " << stage << " end " << end << std::endl;
         if(end)
             stage ++;
         Read_packet rp = get(end);
         transfer_to_dpu_buf->pop_front();
         transfer_to_dpu_buf->push_back(rp);
         std::vector<Read_packet> to_dpu_buf = std::vector<Read_packet>({transfer_to_dpu_buf->begin(), transfer_to_dpu_buf->end()});
-        DPUs.copy("Read_packet", to_dpu_buf);
+        // std::cerr << "[pipe] copy to " << std::endl;
+        DPUs.copy("reads", to_dpu_buf);
         DPUs.exec();
-        DPUs.copy(*transfer_from_dpu_buf, "Partial_result");
+        DPUs.log(std::cout);
+        // DPUs.copy(*transfer_from_dpu_buf, "Partial_result");
 
         Partial_result final_result = compare();
         insert(final_result);
@@ -129,13 +146,18 @@ void Core::read_rna_file(std::string &readFile) {
 } 
 
 void Core::allocate_pipeline_worker() {
+    std::vector<std::thread> UpPipe_sys;
     for(int i = 0; i < pw_n +1 ; ++i) {
         if(i == 0) {
-            pool->enqueue(&Core::read_rna_file, this, readFile);
+            UpPipe_sys.emplace_back(std::thread(&Core::read_rna_file, this, std::ref(readFile)));
         }
         else {
-            pool->enqueue(&Pipeline_worker::map, pw[i-1]);
+            UpPipe_sys.emplace_back(std::thread(Pipeline_worker(), dpu_n, KI));
         }
+    }
+    for (std::thread & th : UpPipe_sys) {
+        if (th.joinable())
+            th.join();
     }
     // output similarity class
 } 
