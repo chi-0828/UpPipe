@@ -14,7 +14,7 @@
 #include "kseq.h"
 #include "dpu_app/dpu_def.h"
 
-using Read_packet = std::vector<char*>;
+using Read_packet = std::vector<char>;
 using Partial_result =  std::vector<dpu_result>;
 Read_packet get();
 

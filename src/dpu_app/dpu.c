@@ -6,7 +6,7 @@
 #include <defs.h>
 #include "dpu_def.h"
 
-extern dpu_args arg;
+extern int32_t k;
 
 void KmerIteratornew(KmerIterator* iterator, const char *s){
     iterator->s_ = s;
@@ -36,10 +36,10 @@ void Kmerfree(Kmer* kmer){
 void KmerIterator_move(KmerIterator* kmerIterator) {
     int pos_ = kmerIterator->p_;
     if (!kmerIterator->invalid_) {
-        if (kmerIterator->s_[pos_+arg.k] == 0) {
+        if (kmerIterator->s_[pos_+k] == 0) {
             kmerIterator->invalid_ = 1;
         } else {
-            find_next(kmerIterator, pos_,pos_+arg.k-1,1);
+            find_next(kmerIterator, pos_,pos_+k-1,1);
         }
     }
 }
@@ -55,7 +55,7 @@ void find_next(KmerIterator* kmerIterator, size_tt i, size_tt j, uint8_t last_va
         forwardBase(&(kmerIterator->kmer), c);
         break; // default case,
       } else {
-        if (i + arg.k - 1 == j) {
+        if (i + k - 1 == j) {
           Kmer k_tmp;
           kmernew(&k_tmp, kmerIterator->s_+i);
           kmernew_copy(&kmerIterator->kmer, &k_tmp);
@@ -71,7 +71,7 @@ void find_next(KmerIterator* kmerIterator, size_tt i, size_tt j, uint8_t last_va
       last_valid = 0;
     }
   }
-  if (i+arg.k-1 == j && kmerIterator->s_[j] != 0) {
+  if (i+k-1 == j && kmerIterator->s_[j] != 0) {
     kmerIterator->p_ = i;
   } else {
     kmerIterator->invalid_ = 1;
@@ -81,13 +81,13 @@ void find_next(KmerIterator* kmerIterator, size_tt i, size_tt j, uint8_t last_va
 
 void forwardBase(Kmer* kmer, const char b) {
   kmer->longs[0] = kmer->longs[0] << 2;
-  size_tt nlongs = (arg.k+31)/32;
+  size_tt nlongs = (k+31)/32;
   for (size_tt i = 1; i < nlongs; i++) {
     kmer->longs[i-1] |= (kmer->longs[i] & (3ULL<<62)) >> 62;
     kmer->longs[i]  = kmer->longs[i] << 2;
   }
   uint64_t x = (b & 4) >>1;
-  kmer->longs[nlongs-1] |= (x + ((x ^ (b & 2)) >>1 )) << (2*(31-((arg.k-1)%32)));
+  kmer->longs[nlongs-1] |= (x + ((x ^ (b & 2)) >>1 )) << (2*(31-((k-1)%32)));
 }
 // < 
 uint8_t Kmer_cmp(const Kmer* a, const Kmer* b){
@@ -123,7 +123,7 @@ Kmer rep(Kmer km) {
 }
 
 void twin(Kmer* km) {
-  size_tt nlongs = (arg.k+31)/32;
+  size_tt nlongs = (k+31)/32;
   // may have bug
   uint64_t this_longs[1];
   for (size_tt i = 0; i < nlongs; i++){
@@ -141,8 +141,8 @@ void twin(Kmer* km) {
       (twin_table[(v>>48) & 0xFF] << 8)  |
       (twin_table[(v>>56)]);
   }
-  size_tt shift = (arg.k%32) ? 2*(32-(arg.k%32)) : 0 ;
-  uint64_t shiftmask = (arg.k%32) ? (((1ULL<< shift)-1) << (64-shift)) : 0ULL;
+  size_tt shift = (k%32) ? 2*(32-(k%32)) : 0 ;
+  uint64_t shiftmask = (k%32) ? (((1ULL<< shift)-1) << (64-shift)) : 0ULL;
   km->longs[0] = km->longs[0] << shift;
 
   for (size_tt i = 1; i < nlongs; i++) {
@@ -154,15 +154,22 @@ void twin(Kmer* km) {
 void set_kmer(const char *s, Kmer* kmer){
   size_tt i,j,l;
   memset(kmer->bytes,0,MAX_K/4);
-  for (i = 0; i < arg.k; ++i) {
-    j = i % 32;
-    l = i/32;
-    //assert(*s != '\0');
-
-    size_tt x = ((*s) & 4) >> 1;
-    size_tt tmp = ((x + ((x ^ (*s & 2)) >>1)) << (2*(31-j)));
+  for (i = 0; i < k; ++i) {
+    uint64_t tmp = 0;
+    if(s[i] == 'A') {
+		tmp = 0;
+    }
+    else if(s[i] == 'T') {
+		tmp = 1;
+    }
+    else if(s[i] == 'C') {
+		tmp = 2;
+    }
+    else if(s[i] == 'G') {
+		tmp = 3;
+    }
     kmer->longs[l] |= tmp;
-    s++;
+	kmer->longs[l] <<= 2;
   }
 }
 
@@ -182,15 +189,15 @@ void toString(Kmer* kmer) {
 
   //printf("kmer(%lu)", kmer->longs[0]);
 
-  for (i = 0; i < arg.k; i++) {
+  for (i = 0; i < k; i++) {
     j = i % 32;
     l = i / 32;
 
     switch(((kmer->longs[l]) >> (2*(31-j)) )& 0x03 ) {
     case 0x00: *s = 'A'; ++s; break;
-    case 0x01: *s = 'C'; ++s; break;
-    case 0x02: *s = 'G'; ++s; break;
-    case 0x03: *s = 'T'; ++s; break;
+    case 0x01: *s = 'T'; ++s; break;
+    case 0x02: *s = 'C'; ++s; break;
+    case 0x03: *s = 'G'; ++s; break;
     }
   }
   *s = '\0';
@@ -199,7 +206,6 @@ void toString(Kmer* kmer) {
 
 void set_empty(Kmer* kmer) {
   memset(kmer->bytes,0xff,MAX_K/4);
-  kmer->bytes[0] ^= 1; 
 }
 
 

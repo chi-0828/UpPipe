@@ -24,18 +24,13 @@ void MurmurHash3_x64_64 ( const void *key, int len, uint32_t seed, void *out );
 
 // hash table
 typedef struct KmerHashTable {
-    int *table_int;
-    Kmer *table_kmer;
+    // int *table_int;
+    // Kmer *table_kmer;
     Kmer empty;
     size_tt size_;
-    __mram_ptr int64_t *table_int_ptr;
-    __mram_ptr uint64_t *table_kmer_ptr;
+    __mram_ptr uint64_t *table_ptr;
 }KmerHashTable;
 
 uint64_t hash(Kmer* key);
-
-size_tt find(Kmer* key, KmerHashTable* kmertable);
-
-int match(int rid, const char *s, int start, int len, KmerHashTable* kmap, int64_t* v_int, int64_t* v_pos, unsigned int tid, __mram_ptr int64_t* result_id, __mram_ptr int64_t* result_pos);
 
 #endif

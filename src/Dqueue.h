@@ -14,6 +14,8 @@ public:
     void set_end();
     bool get_end();
 
+    int size();
+
     std::deque<Read_packet> theDeque;
     std::mutex theMutex;
     std::mutex endMutex;

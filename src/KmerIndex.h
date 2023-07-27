@@ -98,18 +98,11 @@ struct DBGraph {
 struct KmerIndex {
   
   KmerIndex(const ProgramOptions& opt) : dpu_n(opt.dpu_n), k(opt.k), num_trans(0), target_seqs_loaded(false), t_max(1), kmer_max(0) {
-	  hash_tables = new std::vector<std::map<Kmer, std::vector<int16_t>>>();
+	  hash_tables = new std::vector<std::map<Kmer, std::vector<int16_t>>>(dpu_n);
   }
   ~KmerIndex() {
 	  delete hash_tables;
   }
-
-  void match(const char *s, int l, std::vector<std::pair<KmerEntry, int>>& v) const;
-//  bool matchEnd(const char *s, int l, std::vector<std::pair<int, int>>& v, int p) const;
-  int mapPair(const char *s1, int l1, const char *s2, int l2, int ec) const;
-  std::vector<int> intersect(int ec, const std::vector<int>& v) const;
-
-
 
   void hashtable_aligner();
   void Build(const ProgramOptions& opt);
@@ -120,19 +113,11 @@ struct KmerIndex {
 
   // output methods
   void write(const std::string& index_out, bool writeKmerTable = true);
-  void writePseudoBamHeader(std::ostream &o) const;
   
   // note opt is not const
   // load methods
   void load(ProgramOptions& opt);
-  void loadTranscriptSequences() const;
-  void loadECsFromFile(const ProgramOptions& opt);
-  void loadTranscriptsFromFile(const ProgramOptions& opt);
-  void clear();
 
-  // positional information
-  std::pair<int,bool> findPosition(int tr, Kmer km, KmerEntry val, int p = 0) const;
-  std::pair<int,bool> findPosition(int tr, Kmer km, int p) const;
 
   int dpu_n;
   int k; // k-mer size used
@@ -153,6 +138,7 @@ struct KmerIndex {
 	std::vector<int32_t> kmer_max_buf;
 	std::vector<int32_t> t_max_buf;
 	std::vector<int32_t> k_buf;
+  std::vector<size_t> size_buf;
 	std::vector<std::vector<uint64_t>> table_buf;
 	std::vector<std::map<Kmer, std::vector<int16_t>>>* hash_tables;
 	int t_max;

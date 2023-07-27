@@ -208,7 +208,7 @@ void KmerIndex::Buildhashtable(const std::vector<std::string>& seqs) {
 		for (; i < (int16_t)seq_n; i++) {
 			const char *s = seqs[i].c_str();
 			KmerIterator kit(s), kit_end;
-      //std::cerr << seqs[i].c_str() << "\n";
+      // std::cerr << seqs[i].c_str() << "\n";
 			for (; kit != kit_end; ++kit) {
         //std::cerr << kit->first.toString() << "--";
 				auto found = group_hash.find(kit->first);
@@ -223,7 +223,7 @@ void KmerIndex::Buildhashtable(const std::vector<std::string>& seqs) {
 				}
 			}
 		}
-		hash_tables->push_back(group_hash);
+		hash_tables->at(d) = group_hash;
 		if(group_hash.size() > kmer_max)
 			kmer_max = group_hash.size();
   }
@@ -261,6 +261,7 @@ void KmerIndex::write(const std::string& index_out, bool writeKmerTable) {
 			kmap.insert(std::make_pair(entry.first, entry.second));
 		}
 		// write 
+    out.write((char *)&kmap.size_, sizeof(kmap.size_));
 		for (auto& kv : kmap) {
 			// write key : kmer
 			uint64_t key = kv.first.get_kmer();
@@ -337,15 +338,22 @@ void KmerIndex::load(ProgramOptions& opt) {
 
 	// read k
 	in.read((char *)&k, sizeof(k));
+  // std::cerr << "k " << k << "\n";
 
 	// read size of hash table
 	in.read((char *)&t_max, sizeof(t_max));
+  // std::cerr << "t_max " << t_max << "\n";
 	in.read((char *)&kmer_max, sizeof(kmer_max));
+  // std::cerr << "kmer_max " << kmer_max << "\n";
 
 	// read number of dpus
 	in.read((char *)&dpu_n, sizeof(dpu_n));
+  // std::cerr << "dpu_n " << dpu_n << "\n";
 
 	for (int i = 0; i < dpu_n; i++) {
+    size_t size_;
+    in.read((char *)&size_, sizeof(size_));
+    size_buf.push_back(size_);
 		table_buf.push_back(std::vector<uint64_t>());
 		// read 
 		for (int j = 0; j < kmer_max; j++) {
@@ -375,9 +383,9 @@ void KmerIndex::load(ProgramOptions& opt) {
 			}
 		}
 		// TODO : transfer to DPU
-		kmer_max_buf = std::vector<int32_t>(dpu_n, kmer_max);
-		t_max_buf = std::vector<int32_t>(dpu_n, t_max);
-		k_buf = std::vector<int32_t>(dpu_n, k);
+		kmer_max_buf = std::vector<int32_t>(1, kmer_max);
+		t_max_buf = std::vector<int32_t>(1, t_max);
+		k_buf = std::vector<int32_t>(1, k);
 	}
   in.close();
   std::cerr << " done " << std::endl;

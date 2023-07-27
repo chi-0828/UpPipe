@@ -16,16 +16,21 @@ using namespace dpu;
 // global RNA read pool
 bool end = false;
 TDeque RNA_read_pool;
+Read_packet Empty_read_packet(PACKET_CAPACITY, 'N');
 Read_packet get(bool &end) {
     if(end)
-        return Read_packet(0);
+        return Empty_read_packet;
 
     Read_packet rp;
 
     while(RNA_read_pool.empty() && !RNA_read_pool.get_end()) ;
     
-    if(RNA_read_pool.get_end()) {
-        rp = Read_packet(0);
+    if(RNA_read_pool.get_end() && RNA_read_pool.empty()) {
+        rp = Empty_read_packet;
+        end = true;
+    }
+    else if (RNA_read_pool.get_end() && RNA_read_pool.size() <= 1) {
+        rp = RNA_read_pool.pop_front();
         end = true;
     }
     else
@@ -52,7 +57,7 @@ void insert(Partial_result &pr) {
 void Pipeline_worker::operator()(int n, KmerIndex *ki) {
     dpu_n = n;
     KI = ki;
-    transfer_to_dpu_buf = new std::deque<Read_packet>(dpu_n, Read_packet(0));
+    transfer_to_dpu_buf = new std::deque<Read_packet>(dpu_n, Empty_read_packet);
     dpu_result tmp;
     tmp.kmer = 0;
     Partial_result pr_tmp(PACKET_SIZE, tmp);
@@ -85,25 +90,46 @@ void Pipeline_worker::map() {
     std::cerr << "[DPU] loading " << DPU_PROGRAM << std::endl;
     DPUs.load(DPU_PROGRAM);
 
+    // transfer database and parameters
+    DPUs.copy("kmer_max" ,KI->kmer_max_buf);
+    DPUs.copy("t_max" ,KI->t_max_buf);
+    DPUs.copy("k" ,KI->k_buf);
+    DPUs.copy("table" ,KI->table_buf);
+    DPUs.copy("size_" ,KI->size_buf);
+
     // pipeline management
     int stage = 0;
     bool end = false;
-    while(stage <= dpu_n) {
+    while(stage < dpu_n) {
         // std::cerr << "[pipe] stage " << stage << " end " << end << std::endl;
+        Read_packet rp = get(end);
         if(end)
             stage ++;
-        Read_packet rp = get(end);
         transfer_to_dpu_buf->pop_front();
         transfer_to_dpu_buf->push_back(rp);
         std::vector<Read_packet> to_dpu_buf = std::vector<Read_packet>({transfer_to_dpu_buf->begin(), transfer_to_dpu_buf->end()});
         // std::cerr << "[pipe] copy to " << std::endl;
         DPUs.copy("reads", to_dpu_buf);
+        // for(auto &d : to_dpu_buf) {
+        //     int c = 0;
+        //     for(auto &r : d) {
+        //         std::cerr << r << "";
+        //         c++;
+        //         if(c == READ_LEN) {
+        //             std::cerr << "\n";
+        //             c = 0;
+        //         }
+        //     }
+        // }
+        std::cerr << "================\n";
         DPUs.exec();
-        DPUs.log(std::cout);
-        // DPUs.copy(*transfer_from_dpu_buf, "Partial_result");
+        DPUs.log(std::cerr);
+        std::cerr << "================\n";
+        // // DPUs.copy(*transfer_from_dpu_buf, "Partial_result");
+        // exit(1);
 
-        Partial_result final_result = compare();
-        insert(final_result);
+        // Partial_result final_result = compare();
+        // insert(final_result);
     }
 }
 
@@ -118,6 +144,7 @@ void Core::read_rna_file(std::string &readFile) {
     fp = gzopen(readFile.c_str(), "r");
     seq = kseq_init(fp);
     Read_packet seqs;
+    int rp_size = 0;
     while (true) {
         l = kseq_read(seq);
         if (l <= 0) {
@@ -131,13 +158,17 @@ void Core::read_rna_file(std::string &readFile) {
                 seq->seq.s[i] = 'T';
             } 
         }
-        seqs.push_back(seq->seq.s);
-        if(seqs.size() == PACKET_SIZE) {
+        seqs.insert(seqs.end(), seq->seq.s, seq->seq.s + READ_LEN);
+        rp_size ++;
+        if(rp_size == PACKET_SIZE) {
             RNA_read_pool.push_back(seqs);
             seqs.clear();
+            rp_size = 0;
         }
     }
-    if(seqs.size() != 0) {
+    if(rp_size != 0) {
+        Read_packet rmp(READ_LEN*(PACKET_SIZE-rp_size), 'N');
+        seqs.insert( seqs.end() , rmp.begin() , rmp.end());
         RNA_read_pool.push_back(seqs);
     }
     RNA_read_pool.set_end();

@@ -4,6 +4,7 @@
 #include <defs.h>
 
 extern int32_t round_hash;
+extern int32_t k;
 
 uint64_t hash(Kmer* key) {
   uint64_t ret;
@@ -197,43 +198,4 @@ void MurmurHash3_x64_64 ( const void *key, int len, uint32_t seed, void *out ) {
   MurmurHash3_x64_128(key,len,seed,temp);
 
   *(uint64_t *)out = temp[0];
-}
-
-//-----------------------------------------------------------------------------
-
-size_tt find(Kmer* key, KmerHashTable* kmertable) {
-    //kmertable->size_ = 32768;
-    //printf("size %llu \n", kmertable->size_);
-    size_tt h = hash(key) & (kmertable->size_-1);
-    //printf("h %llu \n", h);
-    //h += round_hash*MAX_table_n;
-
-    for (;; h =  (h+1!=kmertable->size_ ? h+1 : 0)) {
-
-        if(h - (round_hash*MAX_table_n) < 0 || h - (round_hash*MAX_table_n) >= MAX_table_n){
-          return kmertable->size_;
-          h = (round_hash*MAX_table_n);
-          continue;
-        }
-
-        __dma_aligned uint64_t table_kmer_cache[1];
-        
-        size_tt addr_shifted = h - (round_hash*MAX_table_n);
-        // not in this part of table
-        
-        __mram_ptr void *target_addr = (kmertable->table_kmer_ptr+addr_shifted);
-        //printf("addr %p\n", target_addr);p 
-        mram_read(target_addr, table_kmer_cache, sizeof(uint64_t));
-        //printf("kmer %lu vs %lu\n", hash_entry->longs[0], kmertable->empty.longs[0]);
-        
-        if (table_kmer_cache[0] == kmertable->empty.longs[0]) {
-          //*matched_kmer = table_kmer_cache[0];
-          // empty slot, not in table
-          return kmertable->size_;
-        } else if (table_kmer_cache[0] == key->longs[0]) {
-          //*matched_kmer = table_kmer_cache[0];
-           // same key, found
-          return addr_shifted;
-        } // if it is deleted, we still have to continue
-    }
 }

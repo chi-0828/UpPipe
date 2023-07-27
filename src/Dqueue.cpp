@@ -20,6 +20,10 @@ bool TDeque::empty() {
     return theDeque.empty();
 }
 
+int TDeque::size() {
+    return theDeque.size();
+}
+
 void TDeque::set_end() {
     std::lock_guard<std::mutex> lock(endMutex);
     end = true;
