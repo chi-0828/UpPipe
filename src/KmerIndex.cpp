@@ -177,18 +177,13 @@ void KmerIndex::Build(const ProgramOptions& opt) {
 
 void KmerIndex::hashtable_aligner() {
 	std::cerr << "[build] align table size  ... "; std::cerr.flush();
-	roundup_4(t_max);
-	for(auto& table: *hash_tables) {
-		for(auto& entry: table) {
-			while(entry.second.size() < t_max) {
-				entry.second.push_back(-1);
-			}
-		}
-		if(table.size() < kmer_max) {
-			std::vector<int16_t> tmp_tran(t_max, -1);
-			Kmer tmp_kmer; 
-			tmp_kmer.set_empty();
-			table.insert(std::make_pair(tmp_kmer, tmp_tran));
+	for(auto& table: table_buf) {
+		if(kmer_max < table.size())
+			kmer_max = table.size();
+	}
+	for(auto& table: table_buf) {
+		for(;table.size() < kmer_max;) {
+			table.push_back(EMPTY_KMER);
 		}
 	}
 	std::cerr << " done " << std::endl;
@@ -201,37 +196,68 @@ void KmerIndex::Buildhashtable(const std::vector<std::string>& seqs) {
 	uint32_t seq_in_group = seqs.size() / dpu_n;
 	uint32_t remain = seqs.size() % dpu_n;
 	int16_t i = 0;
-  Kmer::set_k(k);
+	Kmer::set_k(k);
+	table_buf.resize(dpu_n);
+	t_max_buf.resize(dpu_n);
+	size_buf.resize(dpu_n);
 	for (int d = 0; d < dpu_n; d++) {
 		uint32_t seq_n = (d < remain) ? seq_in_group + 1 : seq_in_group;
-		std::map<Kmer, std::vector<int16_t>> group_hash;
+		t_max = 1;
+		kmap.clear();
 		for (; i < (int16_t)seq_n; i++) {
 			const char *s = seqs[i].c_str();
 			KmerIterator kit(s), kit_end;
-      // std::cerr << seqs[i].c_str() << "\n";
 			for (; kit != kit_end; ++kit) {
-        //std::cerr << kit->first.toString() << "--";
-				auto found = group_hash.find(kit->first);
-				if(found == group_hash.end()) {
-					std::vector<int16_t> tmp(1, i);
-					group_hash.insert(std::make_pair(kit->first, tmp));
-				}
-				else {
-					found->second.push_back(i);
-					if(t_max < found->second.size())
-						t_max = found->second.size();
-				}
+    			// std::cerr << kit->first.toString() << "--";
+				std::vector<int16_t> tmp(1, i);
+				auto ret = kmap.insert(std::make_pair(kit->first, tmp));
+				if(t_max < ret.second)
+					t_max = ret.second;
 			}
 		}
-		hash_tables->at(d) = group_hash;
-		if(group_hash.size() > kmer_max)
-			kmer_max = group_hash.size();
-  }
-  std::cerr << " done " << std::endl;
+		roundup_4(t_max);
+		t_max_buf[d].push_back(t_max);
+		size_buf[d].push_back(kmap.size_);
+		for (size_t h = 0; h < kmap.size_; h++) {
+			// std::cerr << kmap.table[h].first.tobinary() << ": ";
+			table_buf[d].push_back(kmap.table[h].first.tobinary());
+			int t_size = 0;
+			uint64_t v = 0UL;
+			for(auto& t : kmap.table[h].second) {
+				v |= ((uint64_t)t);
+				// std::cerr << v << " ";
+				t_size ++;
+				if(t_size % 4 == 0) {
+					table_buf[d].push_back(v);
+					// std::cerr << "(" << v << ") ";
+					v = 0UL;
+				}
+				else {
+					v <<= 16;
+				}
+			}
+			for(; t_size < t_max;) {
+				int16_t t = -1;
+				v |= ((uint64_t)65535);
+				// std::cerr << v << " ";
+				t_size ++;
+				if(t_size % 4 == 0) {
+					table_buf[d].push_back(v);
+					// std::cerr << "(" << v << ")";
+					v = 0UL;
+				}
+				else {
+					v <<= 16;
+				}
+			}
+			// std::cerr << "\n";
+		}
+  	}
+  	std::cerr << " done " << std::endl;
 }
 
 void KmerIndex::write(const std::string& index_out, bool writeKmerTable) {
-  std::cerr << "[build] write hash table to \"" << index_out << "\" ... "; std::cerr.flush();
+	std::cerr << "[build] write hash table to \"" << index_out << "\" ... "; std::cerr.flush();
 	std::ofstream out;
 	out.open(index_out, std::ios::out | std::ios::binary);
 
@@ -243,38 +269,30 @@ void KmerIndex::write(const std::string& index_out, bool writeKmerTable) {
 
 	// write k
 	out.write((char *)&k, sizeof(k));
-  //std::cerr << k << "\n";
+	//std::cerr << k << "\n";
 
 	// write hash table size
-	out.write((char *)&t_max, sizeof(t_max));
+	
 	out.write((char *)&kmer_max, sizeof(kmer_max));
-  //std::cerr << t_max << "\n";
-  //std::cerr << kmer_max << "\n";
+	//std::cerr << t_max << "\n";
+	//std::cerr << kmer_max << "\n";
 
 	// write number of dpus
 	out.write((char *)&dpu_n, sizeof(dpu_n));
 
 	// build & write hash table and  
-	for(auto& table: *hash_tables) {
-		// bulid 
+	int d = 0;
+	for(auto& table: table_buf) {
+		out.write((char *)&t_max_buf[d][0], sizeof(t_max_buf[d][0]));
+		out.write((char *)&size_buf[d][0], sizeof(size_buf[d][0]));
 		for(auto& entry: table) {
-			kmap.insert(std::make_pair(entry.first, entry.second));
+			out.write((char *)&entry, sizeof(entry));
 		}
-		// write 
-    out.write((char *)&kmap.size_, sizeof(kmap.size_));
-		for (auto& kv : kmap) {
-			// write key : kmer
-			uint64_t key = kv.first.get_kmer();
-			out.write((char *)&key, sizeof(key));
-			// write value : transcripts
-			for(auto& t : kv.second) {
-				out.write((char *)&t, sizeof(t));
-			}
-		}
+		d ++;
 	}
 	out.flush();
 	out.close();
-  std::cerr << " done " << std::endl;
+	std::cerr << " done " << std::endl;
 }
 
 bool KmerIndex::fwStep(Kmer km, Kmer& end) const {
@@ -338,54 +356,34 @@ void KmerIndex::load(ProgramOptions& opt) {
 
 	// read k
 	in.read((char *)&k, sizeof(k));
-  // std::cerr << "k " << k << "\n";
-
+  	// std::cerr << "k " << k << "\n";
 	// read size of hash table
-	in.read((char *)&t_max, sizeof(t_max));
-  // std::cerr << "t_max " << t_max << "\n";
 	in.read((char *)&kmer_max, sizeof(kmer_max));
-  // std::cerr << "kmer_max " << kmer_max << "\n";
+  	kmer_max_buf = std::vector<int32_t>(1, kmer_max);
+	k_buf = std::vector<int32_t>(1, k);
 
 	// read number of dpus
 	in.read((char *)&dpu_n, sizeof(dpu_n));
-  // std::cerr << "dpu_n " << dpu_n << "\n";
+  	// std::cerr << "dpu_n " << dpu_n << "\n";
 
+	table_buf.resize(dpu_n);
+	t_max_buf.resize(dpu_n);
+	size_buf.resize(dpu_n);
 	for (int i = 0; i < dpu_n; i++) {
-    size_t size_;
-    in.read((char *)&size_, sizeof(size_));
-    size_buf.push_back(size_);
-		table_buf.push_back(std::vector<uint64_t>());
+		int t_max;
+		in.read((char *)&t_max, sizeof(t_max));
+		t_max_buf[i].push_back(t_max);
+		size_t size_;
+		in.read((char *)&size_, sizeof(size_));
+		size_buf[i].push_back(size_);
 		// read 
 		for (int j = 0; j < kmer_max; j++) {
-			// key 
-			uint64_t key;
-			in.read((char *)&key, sizeof(key));
+			// entry 
+			uint64_t entry;
+			in.read((char *)&entry, sizeof(entry));
 			// to transfer buffer
-			table_buf[i].push_back(key);
-			// value : transcripts
-			uint64_t values = 0UL;
-			int tt = 0;
-			for(int t = 0; t < t_max; t++) {
-				int16_t tran;
-				in.read((char *)&tran, sizeof(tran));
-				if(tt < 4) {
-					values |= ((uint64_t)tran);
-					if(tt < 3)
-						values << 16;
-					tt ++;
-				}
-				if(tt == 4) {
-					// to transfer buffer
-					table_buf[i].push_back(values);
-					tt = 0;
-					values = 0UL;
-				}
-			}
+			table_buf[i].push_back(entry);
 		}
-		// TODO : transfer to DPU
-		kmer_max_buf = std::vector<int32_t>(1, kmer_max);
-		t_max_buf = std::vector<int32_t>(1, t_max);
-		k_buf = std::vector<int32_t>(1, k);
 	}
   in.close();
   std::cerr << " done " << std::endl;

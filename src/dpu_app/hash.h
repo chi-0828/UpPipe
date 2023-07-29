@@ -22,15 +22,6 @@ uint32_t SuperFastHash (const char *data, int len);
 //void MurmurHash3_x64_32 ( const void * key, int len, uint32_t seed, void * out );
 void MurmurHash3_x64_64 ( const void *key, int len, uint32_t seed, void *out );
 
-// hash table
-typedef struct KmerHashTable {
-    // int *table_int;
-    // Kmer *table_kmer;
-    Kmer empty;
-    size_tt size_;
-    __mram_ptr uint64_t *table_ptr;
-}KmerHashTable;
-
 uint64_t hash(Kmer* key);
 
 #endif

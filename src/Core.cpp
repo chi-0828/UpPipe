@@ -59,7 +59,6 @@ void Pipeline_worker::operator()(int n, KmerIndex *ki) {
     KI = ki;
     transfer_to_dpu_buf = new std::deque<Read_packet>(dpu_n, Empty_read_packet);
     dpu_result tmp;
-    tmp.kmer = 0;
     Partial_result pr_tmp(PACKET_SIZE, tmp);
     transfer_from_dpu_buf = new std::vector<Partial_result>(dpu_n, pr_tmp);
     partial_result_buf = new std::deque<Partial_result>(dpu_n, pr_tmp);
@@ -69,7 +68,7 @@ void Pipeline_worker::operator()(int n, KmerIndex *ki) {
 Partial_result Pipeline_worker::compare() {
     for(int i = 0; i < dpu_n; i++) {
         for(int j = 0; j < PACKET_SIZE; j++) {
-            if(partial_result_buf->at(i).at(j).kmer < transfer_from_dpu_buf->at(i).at(j).kmer) {
+            if(partial_result_buf->at(i).at(j).len < transfer_from_dpu_buf->at(i).at(j).len) {
                 partial_result_buf->at(i).at(j) = transfer_from_dpu_buf->at(i).at(j);
             }
         }
@@ -77,7 +76,7 @@ Partial_result Pipeline_worker::compare() {
     Partial_result final_result = partial_result_buf->front();
     partial_result_buf->pop_front();
     dpu_result tmp;
-    tmp.kmer = 0;
+    memset(&tmp, 0, sizeof(dpu_result));
     Partial_result pr_tmp(PACKET_SIZE, tmp);
     partial_result_buf->push_back(pr_tmp);
     return final_result;
@@ -110,22 +109,11 @@ void Pipeline_worker::map() {
         std::vector<Read_packet> to_dpu_buf = std::vector<Read_packet>({transfer_to_dpu_buf->begin(), transfer_to_dpu_buf->end()});
         // std::cerr << "[pipe] copy to " << std::endl;
         DPUs.copy("reads", to_dpu_buf);
-        // for(auto &d : to_dpu_buf) {
-        //     int c = 0;
-        //     for(auto &r : d) {
-        //         std::cerr << r << "";
-        //         c++;
-        //         if(c == READ_LEN) {
-        //             std::cerr << "\n";
-        //             c = 0;
-        //         }
-        //     }
-        // }
         std::cerr << "================\n";
         DPUs.exec();
         DPUs.log(std::cerr);
         std::cerr << "================\n";
-        // // DPUs.copy(*transfer_from_dpu_buf, "Partial_result");
+        DPUs.copy(*transfer_from_dpu_buf, "result");
         // exit(1);
 
         // Partial_result final_result = compare();

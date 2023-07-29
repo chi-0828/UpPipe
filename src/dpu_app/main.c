@@ -10,10 +10,7 @@
 __mram_noinit char reads[PACKET_CAPACITY];
 
 // result (to host)
-// __mram_noinit int64_t result_2_read[MAX_PACKET_SIZE];
-// __mram_noinit int64_t result_id[MAX_PACKET_SIZE];
-// __mram_noinit int64_t result_pos[MAX_PACKET_SIZE];
-__host int result_len[PACKET_SIZE];
+__mram_noinit dpu_result result[PACKET_SIZE];
 
 // 60 MB hash table (from hsot)
 __mram_noinit uint64_t table[MAX_table_n];
@@ -31,14 +28,6 @@ __host int k;
 __host int kmer_max;
 __host int t_max;
 
-// multi-tasklets
-BARRIER_INIT(my_barrier, NR_TASKLETS);
-int64_t result_id_tasklet[NR_TASKLETS][16];
-int64_t result_pos_tasklet[NR_TASKLETS][16];
-int32_t v_16len[NR_TASKLETS];
-int32_t head;
-int32_t matched_size_tasklet[NR_TASKLETS];
-
 //STDOUT_BUFFER_INIT(40960)
 
 int RoundDown(int* a)
@@ -50,13 +39,7 @@ int main(){
 
 	// init
 	unsigned int tasklet_id = me();
-
-	// read out the hash table
-	KmerHashTable kmap;
-	set_empty(&(kmap.empty));
-	kmap.size_ = size_;
-	kmap.table_ptr = table;
-
+	int gap = t_max/4 + 1;
 	// rseult cahce
 	//   int64_t *vint = result_id_tasklet[tasklet_id];
 	//   int64_t *vpos= result_pos_tasklet[tasklet_id];
@@ -65,7 +48,9 @@ int main(){
 	//   int v_len = v_16len[tasklet_id];
 
 	for(int readid = tasklet_id; readid < PACKET_SIZE; readid+=NR_TASKLETS){
-
+		// init result
+		__dma_aligned dpu_result t;
+		memset(&t, 0, sizeof(dpu_result));
 		// read out the read from mram
 		int len = READ_LEN;
 		__dma_aligned char read_cache[160];
@@ -82,50 +67,56 @@ int main(){
 		KmerIteratornew_NULL(&kit_end);
 
 		for (int i = 0;  !KmerIterator_cmp(&kit, &kit_end); ++i,KmerIterator_move(&kit)) {
-
-			size_tt h = hash(&kit.kmer) & (kmap.size_-1);
-			//printf("h %llu \n", h);
-			//h += round_hash*MAX_table_n;
+			size_tt h = hash(&kit.kmer) & (size_-1);
+			// toString(&kit.kmer);
+			// printf("h %llu \n", h);
 			size_tt find;
-			for (;; h = (h+1!=kmap.size_ ? h+1 : 0)) {
-				if(h+1!=kmap.size_ -1)
-					break;
+			for (;; h = (h+1!=size_ ? h+1 : 0)) {
+				// printf("h %llu %llu\n", h, size_);
 				__dma_aligned uint64_t table_kmer_cache;
-				
-				int gap = t_max/4 + 1;
-				__mram_ptr void *target_addr = (kmap.table_ptr+(h*gap));
-				//printf("addr %p\n", target_addr);p 
+				__mram_ptr void *target_addr = (table+(h*gap));
+				//printf("addr %p\n", target_addr);
 				mram_read(target_addr, &table_kmer_cache, sizeof(uint64_t));
-				printf("kmer %lu vs %lu\n", table_kmer_cache, kmap.empty.longs[0]);
 				
-				if (table_kmer_cache == kmap.empty.longs[0]) {
-					//*matched_kmer = table_kmer_cache[0];
+				if (table_kmer_cache == EMPTY_KMER) {
 					// empty slot, not in table
-					find = kmap.size_;
+					// printf("empty %lu vs %lu\n", table_kmer_cache, EMPTY_KMER);
+					find = size_;
+					break;
 				} else if (table_kmer_cache == kit.kmer.longs[0]) {
-					//*matched_kmer = table_kmer_cache[0];
 					// same key, found
+					// printf("kmer %lu vs %lu\n", table_kmer_cache, kit.kmer.longs[0]);
 					find = h;
-				} // if it is deleted, we still have to continue
+					break;
+				} 
 			}
-			// if (finded_key != kmap.size_) {
-      
-			// 	// // read table to wram
-			// 	// __dma_aligned int64_t table_int_cache[1];
-			// 	// __mram_ptr void *target_addr = kmap.table_int_ptr+finded_key;
-			// 	// mram_read(target_addr, table_int_cache, sizeof(int64_t));
-			// 	// //printf("=> contig %lld ", table_int_cache[0]);
-
-			// 	// // prevent error or bug
-			// 	// assert(table_int_cache[0] != -1);
-			// }
+			if (find != size_) {
+				__dma_aligned uint64_t table_T_cache[8];
+				mram_read(table+(find*gap)+1, &table_T_cache, sizeof(uint64_t)*(gap-1));
+				for(int chunk = 0; chunk < gap-1; chunk++) {
+					// printf("%d chunk %lu\n", chunk, table_T_cache[chunk]);
+					for(int t_count = 3; t_count >= 0; t_count--) {
+						int16_t v = (table_T_cache[chunk] >> (16*t_count));
+						// printf("%d t_count %d\n", t_count, v);
+						if(v == -1) 
+							break;
+						uint8_t add = 1;
+						for(int l = 0; l < t.len; l++) {
+							if(t.T[l] == v) {
+								add = 0;
+								break;
+							}
+						}
+						if(add)
+							t.T[t.len++] = v;
+					}
+				}
+			}
+		}	
+		mram_write(&t, &result[readid], sizeof(dpu_result));
+		for(int i = 0; i < t.len; i++) {
+			printf("%d read match %d\n", readid, t.T[i]);
 		}
-		// // iterate each read
-		// v_matched = match(readid, read_cache, shift_count, len, &kmap, vint, vpos, tasklet_id, result_id, result_pos);
-
-		// // get matched count of this read
-		// matched_count_read = (matched_size_tasklet[tasklet_id] - matched_count_read);
-		// result_len[readid] = matched_count_read;
 	}
 	return 0;
 }

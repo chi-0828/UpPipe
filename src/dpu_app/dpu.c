@@ -80,14 +80,14 @@ void find_next(KmerIterator* kmerIterator, size_tt i, size_tt j, uint8_t last_va
 }
 
 void forwardBase(Kmer* kmer, const char b) {
-  kmer->longs[0] = kmer->longs[0] << 2;
-  size_tt nlongs = (k+31)/32;
-  for (size_tt i = 1; i < nlongs; i++) {
-    kmer->longs[i-1] |= (kmer->longs[i] & (3ULL<<62)) >> 62;
-    kmer->longs[i]  = kmer->longs[i] << 2;
-  }
-  uint64_t x = (b & 4) >>1;
-  kmer->longs[nlongs-1] |= (x + ((x ^ (b & 2)) >>1 )) << (2*(31-((k-1)%32)));
+	kmer->longs[0] = kmer->longs[0] << 2;
+	switch(b) {
+		case 'A': kmer->longs[0] |= (0x00UL); break;
+		case 'T': kmer->longs[0] |= (0x01UL); break;
+		case 'C': kmer->longs[0] |= (0x02UL); break;
+		case 'G': kmer->longs[0] |= (0x03UL); break;
+	}
+	// std::cerr << kmer->longs[0]getBinary() << "\n" ;
 }
 // < 
 uint8_t Kmer_cmp(const Kmer* a, const Kmer* b){
@@ -152,24 +152,16 @@ void twin(Kmer* km) {
 }
 
 void set_kmer(const char *s, Kmer* kmer){
-  size_tt i,j,l;
   memset(kmer->bytes,0,MAX_K/4);
-  for (i = 0; i < k; ++i) {
-    uint64_t tmp = 0;
-    if(s[i] == 'A') {
-		tmp = 0;
+  for (size_t i = 0; i < k; ++i) {
+    assert(*s != '\0');
+    switch(*s) {
+      case 'A': kmer->longs[0] |= (0x00UL << (2*(k-i-1))); break;
+      case 'T': kmer->longs[0] |= (0x01UL << (2*(k-i-1))); break;
+      case 'C': kmer->longs[0] |= (0x02UL << (2*(k-i-1))); break;
+      case 'G': kmer->longs[0] |= (0x03UL << (2*(k-i-1))); break;
     }
-    else if(s[i] == 'T') {
-		tmp = 1;
-    }
-    else if(s[i] == 'C') {
-		tmp = 2;
-    }
-    else if(s[i] == 'G') {
-		tmp = 3;
-    }
-    kmer->longs[l] |= tmp;
-	kmer->longs[l] <<= 2;
+    s++;
   }
 }
 
@@ -185,27 +177,25 @@ void toString(Kmer* kmer) {
 
   char buf[MAX_K];
   char*s = buf;
-  size_tt i,j,l;
-
-  //printf("kmer(%lu)", kmer->longs[0]);
-
-  for (i = 0; i < k; i++) {
-    j = i % 32;
-    l = i / 32;
-
-    switch(((kmer->longs[l]) >> (2*(31-j)) )& 0x03 ) {
-    case 0x00: *s = 'A'; ++s; break;
-    case 0x01: *s = 'T'; ++s; break;
-    case 0x02: *s = 'C'; ++s; break;
-    case 0x03: *s = 'G'; ++s; break;
+  size_t j,l;
+  for (int i = k - 1; i >= 0; i--) {
+    uint64_t v = kmer->longs[0];
+    v = v >> (2*i);
+    // std::cerr << (v& 0x03) << " ";
+    switch( v & 0x03 ) {
+      case 0x00: *s = 'A'; ++s; break;
+      case 0x01: *s = 'T'; ++s; break;
+      case 0x02: *s = 'C'; ++s; break;
+      case 0x03: *s = 'G'; ++s; break;
     }
   }
+
   *s = '\0';
   printf("%s \n", buf);
 }
 
 void set_empty(Kmer* kmer) {
-  memset(kmer->bytes,0xff,MAX_K/4);
+  kmer->longs[0] = EMPTY_KMER;
 }
 
 

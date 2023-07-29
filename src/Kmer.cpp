@@ -170,10 +170,10 @@ void Kmer::set_kmer(const char *s)  {
   for (size_t i = 0; i < k; ++i) {
     assert(*s != '\0');
     switch(*s) {
-      case 'A': longs |= (0x00UL << (2*i)); break;
-      case 'T': longs |= (0x01UL << (2*i)); break;
-      case 'C': longs |= (0x02UL << (2*i)); break;
-      case 'G': longs |= (0x03UL << (2*i)); break;
+      case 'A': longs |= (0x00UL << (2*(k-i-1))); break;
+      case 'T': longs |= (0x01UL << (2*(k-i-1))); break;
+      case 'C': longs |= (0x02UL << (2*(k-i-1))); break;
+      case 'G': longs |= (0x03UL << (2*(k-i-1))); break;
     }
     s++;
   }
@@ -395,11 +395,11 @@ std::string Kmer::getBinary() const {
 // pre:  s has space for k+1 elements
 // post: s[0,...,k-1] is the DNA string for the Kmer km and s[k] = '\0'
 void Kmer::toString(char *s) const {
-  size_t i,j,l;
-  for (i = k - 1; i >= 0; i--) {
+  size_t j,l;
+  for (int i = k - 1; i >= 0; i--) {
     uint64_t kmer = longs;
     kmer = kmer >> (2*i);
-    //std::cerr << (kmer& 0x03) << " ";
+    // std::cerr << (kmer& 0x03) << " ";
     switch( kmer & 0x03 ) {
       case 0x00: *s = 'A'; ++s; break;
       case 0x01: *s = 'T'; ++s; break;

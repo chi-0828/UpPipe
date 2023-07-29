@@ -82,10 +82,6 @@ class Kmer {
   static const unsigned int MAX_K = MAX_KMER_SIZE;
   static unsigned int k;
 
-  uint64_t get_kmer(){
-    return longs;
-  }
-
  private:
   static unsigned int k_bytes;
   static unsigned int k_longs;

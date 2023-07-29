@@ -8,6 +8,7 @@
 #include <string.h>
 
 #define MAX_K 32
+#define EMPTY_KMER 0XFFFFFFFFFFFFFFFFUL
 
 typedef unsigned long long size_tt;
 typedef int32_t KmerEntry;
