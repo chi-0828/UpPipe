@@ -29,7 +29,7 @@ int main(int argc, char** argv) {
         KmerIndex *KI = new KmerIndex(opt);
         KI->load(opt);
 
-        Core* core = new Core(opt.worker_n, KI->dpu_n, KI, opt.readFile);
+        Core* core = new Core(opt.worker_n, KI->dpu_n, KI, opt.readFile, opt.output);
         
         delete core;
         delete KI;

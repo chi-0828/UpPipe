@@ -18,7 +18,6 @@ class KmerIterator : public std::iterator<std::input_iterator_tag, std::pair<Kme
 
   KmerIterator& operator++();
   KmerIterator operator++(int);
-  void raise(Kmer& km, Kmer& rep);
   void jumpTo(int pos);
 
   bool operator==(const KmerIterator& o);

@@ -10,19 +10,36 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <set>
 #include <unordered_map>
 #include <stdint.h>
 #include <ostream>
 #include <map>
-
-
+#include <deque>
 #include "common.h"
 #include "Kmer.hpp"
 #include "KmerIterator.hpp"
-
 #include "KmerHashTable.h"
-
 #include "hash.hpp"
+
+inline int W(int k) {
+  if(k < 10)
+    return k;
+  if(k < 20)
+    return k -6;
+  return k -16;
+}
+inline Kmer get_mini(std::deque<Kmer> &dq) {
+  Kmer seed;
+  uint64_t seed_binary = EMPTY_KMER;
+  for(auto& kmer: dq) {
+    if(seed_binary >= kmer.tobinary()) {
+      seed_binary = kmer.tobinary();
+      seed = kmer;
+    }
+  }
+  return seed;
+}
 
 std::string revcomp(const std::string s);
 
@@ -108,8 +125,7 @@ struct KmerIndex {
   void Build(const ProgramOptions& opt);
   void Buildhashtable(const std::vector<std::string>& seqs);
   void BuildEquivalenceClasses(const ProgramOptions& opt, const std::vector<std::string>& seqs);
-  void FixSplitContigs(const ProgramOptions& opt, std::vector<std::vector<TRInfo>>& trinfos);
-  bool fwStep(Kmer km, Kmer& end) const;
+
 
   // output methods
   void write(const std::string& index_out, bool writeKmerTable = true);
@@ -123,7 +139,7 @@ struct KmerIndex {
   int k; // k-mer size used
   int num_trans; // number of targets
 
-  KmerHashTable<std::vector<int16_t>, KmerHash> kmap;
+  KmerHashTable<std::set<int16_t>, KmerHash> kmap;
   EcMap ecmap;
   DBGraph dbGraph;
   std::unordered_map<std::vector<int>, int, SortedVectorHasher> ecmapinv;

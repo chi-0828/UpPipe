@@ -80,6 +80,8 @@ void find_next(KmerIterator* kmerIterator, size_tt i, size_tt j, uint8_t last_va
 }
 
 void forwardBase(Kmer* kmer, const char b) {
+  uint64_t mask = EMPTY_KMER;
+  mask &= ((2UL<<(2*k)) -1);
 	kmer->longs[0] = kmer->longs[0] << 2;
 	switch(b) {
 		case 'A': kmer->longs[0] |= (0x00UL); break;
@@ -87,6 +89,7 @@ void forwardBase(Kmer* kmer, const char b) {
 		case 'C': kmer->longs[0] |= (0x02UL); break;
 		case 'G': kmer->longs[0] |= (0x03UL); break;
 	}
+  kmer->longs[0] &= mask;
 	// std::cerr << kmer->longs[0]getBinary() << "\n" ;
 }
 // < 

@@ -59,13 +59,6 @@ class Kmer {
   uint64_t hash() const;
   uint64_t tobinary() const;
 
-
-
-  Kmer twin() const;
-  Kmer rep() const;
-
-  Kmer getLink(const size_t index) const;
-
   Kmer forwardBase(const char b) const;
 
   Kmer backwardBase(const char b) const;

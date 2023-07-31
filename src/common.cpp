@@ -78,6 +78,8 @@ void ParseOptionsAligment(int argc, char **argv, ProgramOptions& opt) {
         break;
     }
   }
+  if(opt.output.empty())
+    opt.output = std::string("out");
 }
 
 void ParseOptionsBuild(int argc, char **argv, ProgramOptions& opt) {

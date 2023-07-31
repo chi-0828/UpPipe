@@ -177,6 +177,34 @@ struct KmerHashTable {
     return oldpop-pop;
   }
 
+  int insert(const Kmer &key, const int16_t &value) {
+    //cerr << "inserting " << key.toString() << " = " << val.second << endl;
+    if ((pop + (pop>>4))> size_) { // if more than 80% full
+      //cerr << "-- triggered resize--" << endl;
+      reserve(2*size_, false);
+    }
+
+    size_t h = hasher(key) & (size_-1);
+    // std::cerr << key.tobinary() << key.toString() << " hash value = " << h << std::endl;
+    for (;; h = (h+1!=size_ ? h+1 : 0)) {
+      //cerr << "  lookup at " << h << endl;
+      if (table[h].first == empty.first || table[h].first == deleted.first) {
+        //cerr << "   found empty slot" << endl;
+        // empty slot, insert here
+        std::set<int16_t> set = {value};
+        table[h] = std::make_pair(key, set);
+        ++pop; // new table
+        return 1;
+      } 
+      else if (table[h].first == key) {
+        table[h].second.insert(value);
+        // same key, update value
+        //cerr << "   found key already here " << table[h].first.toString() << " = " << table[h].second <<  endl;
+        return table[h].second.size();
+      }
+    }
+  }
+
   std::pair<iterator,int> insert(const value_type& val) {
     //cerr << "inserting " << val.first.toString() << " = " << val.second << endl;
     if ((pop + (pop>>4))> size_) { // if more than 80% full
@@ -196,13 +224,13 @@ struct KmerHashTable {
         return {iterator(this, h), 1};
       } 
       else if (table[h].first == val.first) {
-        table[h].second.push_back(val.second[0]);
+        for(auto& t : val.second)
+          table[h].second.insert(t);
         // same key, update value
         //cerr << "   found key already here " << table[h].first.toString() << " = " << table[h].second <<  endl;
         return {iterator(this, h), table[h].second.size()};
       }
     }
-
   }
 
   void reserve(size_t sz, bool expand = true) {

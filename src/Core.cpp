@@ -1,5 +1,6 @@
 #include "Core.h"
 #include "Dqueue.h"
+#include <chrono>
 
 #ifndef KSEQ_INIT_READY
 #define KSEQ_INIT_READY
@@ -40,15 +41,17 @@ Read_packet get(bool &end) {
 }
 
 // global similarity class record
-std::map<std::vector<int>, int> similarity_class;
-void insert(Partial_result &pr) {
+std::map<std::set<int16_t>, int> similarity_class;
+void insert(Partial_result_host &pr) {
     for(int j = 0; j < PACKET_SIZE; j++) {
-        std::vector<int> key(pr.at(j).T, pr.at(j).T + pr.at(j).len);
-        if(similarity_class.find(key) == similarity_class.end()) {
-            similarity_class.insert(std::make_pair(key, 1));
+        if(pr.at(j).T.size() == 0)
+            continue;
+        // std::sort(key.begin(), key.end());
+        if(similarity_class.find(pr.at(j).T) == similarity_class.end()) {
+            similarity_class.insert(std::make_pair(pr.at(j).T, 1));
         }
         else {
-            similarity_class.at(key) ++;
+            similarity_class.at(pr.at(j).T) ++;
         }
     }
 }
@@ -61,32 +64,53 @@ void Pipeline_worker::operator()(int n, KmerIndex *ki) {
     dpu_result tmp;
     Partial_result pr_tmp(PACKET_SIZE, tmp);
     transfer_from_dpu_buf = new std::vector<Partial_result>(dpu_n, pr_tmp);
-    partial_result_buf = new std::deque<Partial_result>(dpu_n, pr_tmp);
+    dpu_result_host tmp_h;
+    Partial_result_host pr_tmp_h(PACKET_SIZE, tmp_h);
+    partial_result_buf = new std::deque<Partial_result_host>(dpu_n, pr_tmp_h);
     map();
 }
 
-Partial_result Pipeline_worker::compare() {
+Partial_result_host Pipeline_worker::compare() {
     for(int i = 0; i < dpu_n; i++) {
         for(int j = 0; j < PACKET_SIZE; j++) {
-            if(partial_result_buf->at(i).at(j).len < transfer_from_dpu_buf->at(i).at(j).len) {
-                partial_result_buf->at(i).at(j) = transfer_from_dpu_buf->at(i).at(j);
+            assert(transfer_from_dpu_buf->at(i).at(j).kmer >= 0);
+            if(transfer_from_dpu_buf->at(i).at(j).len < 0 || transfer_from_dpu_buf->at(i).at(j).len > T_LEN) {
+                std::cerr << transfer_from_dpu_buf->at(i).at(j).len << " < 0 !\n";
+                for(int ll = 0; ll < T_LEN; ll ++)
+                    std::cerr << transfer_from_dpu_buf->at(i).at(j).T[ll] << " ";
+                std::cerr << "\n";
             }
+            if(partial_result_buf->at(i).at(j).kmer < transfer_from_dpu_buf->at(i).at(j).kmer) {
+                partial_result_buf->at(i).at(j).kmer = transfer_from_dpu_buf->at(i).at(j).kmer;
+                partial_result_buf->at(i).at(j).len = transfer_from_dpu_buf->at(i).at(j).len;
+                int16_t *ptr = transfer_from_dpu_buf->at(i).at(j).T;
+                partial_result_buf->at(i).at(j).T = std::set<int16_t>(ptr, ptr + transfer_from_dpu_buf->at(i).at(j).len);
+            }
+            else if(partial_result_buf->at(i).at(j).kmer == transfer_from_dpu_buf->at(i).at(j).kmer) {
+                for(int l2 = 0; l2 < transfer_from_dpu_buf->at(i).at(j).len; l2 ++)
+                    partial_result_buf->at(i).at(j).T.insert(transfer_from_dpu_buf->at(i).at(j).T[l2]);
+                // for(auto& map_item: check_map)
+                //     pushed_items.push_back(map_item);
+                partial_result_buf->at(i).at(j).len = partial_result_buf->at(i).at(j).T.size();
+            }
+            //assert(partial_result_buf->at(i).at(j).len >= 0);
+            //assert(partial_result_buf->at(i).at(j).len <= T_LEN);
         }
     }
-    Partial_result final_result = partial_result_buf->front();
+    Partial_result_host final_result = partial_result_buf->front();
     partial_result_buf->pop_front();
-    dpu_result tmp;
-    memset(&tmp, 0, sizeof(dpu_result));
-    Partial_result pr_tmp(PACKET_SIZE, tmp);
+    dpu_result_host tmp;
+    memset(&tmp, 0, sizeof(dpu_result_host));
+    Partial_result_host pr_tmp(PACKET_SIZE, tmp);
     partial_result_buf->push_back(pr_tmp);
     return final_result;
 }
 
 void Pipeline_worker::map() {
-    std::cerr << "[DPU] allocating " << dpu_n << " DPUs" << std::endl;
+    // std::cerr << "[DPU] allocating " << dpu_n << " DPUs" << std::endl;
     auto DPUs = DpuSet::allocate(dpu_n);
     auto dpu = DPUs.dpus();
-    std::cerr << "[DPU] loading " << DPU_PROGRAM << std::endl;
+    // std::cerr << "[DPU] loading " << DPU_PROGRAM << std::endl;
     DPUs.load(DPU_PROGRAM);
 
     // transfer database and parameters
@@ -99,27 +123,58 @@ void Pipeline_worker::map() {
     // pipeline management
     int stage = 0;
     bool end = false;
+    
+    double get_read_time = 0, CPU_DPU_time = 0, DPU_run_time = 0, DPU_CPU_time = 0, compare_time = 0, insert_time = 0;
     while(stage < dpu_n) {
+        auto t_start = std::chrono::high_resolution_clock::now();
         // std::cerr << "[pipe] stage " << stage << " end " << end << std::endl;
         Read_packet rp = get(end);
         if(end)
             stage ++;
         transfer_to_dpu_buf->pop_front();
         transfer_to_dpu_buf->push_back(rp);
-        std::vector<Read_packet> to_dpu_buf = std::vector<Read_packet>({transfer_to_dpu_buf->begin(), transfer_to_dpu_buf->end()});
+        std::vector<Read_packet> to_dpu_buf({transfer_to_dpu_buf->begin(), transfer_to_dpu_buf->end()});
+        auto t_end = std::chrono::high_resolution_clock::now();
+        get_read_time += std::chrono::duration_cast<std::chrono::duration<double>>(t_end - t_start).count();
+        
         // std::cerr << "[pipe] copy to " << std::endl;
+        t_start = std::chrono::high_resolution_clock::now();
         DPUs.copy("reads", to_dpu_buf);
-        std::cerr << "================\n";
+        t_end = std::chrono::high_resolution_clock::now();
+        CPU_DPU_time += std::chrono::duration_cast<std::chrono::duration<double>>(t_end - t_start).count();
+        
+        // std::cerr << "+===============\n";
+        t_start = std::chrono::high_resolution_clock::now();
         DPUs.exec();
-        DPUs.log(std::cerr);
-        std::cerr << "================\n";
+        t_end = std::chrono::high_resolution_clock::now();
+        DPU_run_time += std::chrono::duration_cast<std::chrono::duration<double>>(t_end - t_start).count();
+       
+        // DPUs.log(std::cerr);
+        t_start = std::chrono::high_resolution_clock::now();
         DPUs.copy(*transfer_from_dpu_buf, "result");
-        // exit(1);
+        t_end = std::chrono::high_resolution_clock::now();
+        DPU_CPU_time += std::chrono::duration_cast<std::chrono::duration<double>>(t_end - t_start).count();
+        
+        // std::cerr << "-===============\n";
 
-        // Partial_result final_result = compare();
-        // insert(final_result);
+        t_start = std::chrono::high_resolution_clock::now();
+        Partial_result_host final_result = compare();
+        t_end = std::chrono::high_resolution_clock::now();
+        compare_time += std::chrono::duration_cast<std::chrono::duration<double>>(t_end - t_start).count();
+        
+
+        t_start = std::chrono::high_resolution_clock::now();
+        insert(final_result);
+        t_end = std::chrono::high_resolution_clock::now();
+        insert_time += std::chrono::duration_cast<std::chrono::duration<double>>(t_end - t_start).count();
     }
-}
+    // std::cerr << "get reads time " << get_read_time << " s\n";
+    // std::cerr << "CPU-DPU time " << CPU_DPU_time << " s\n";
+    // std::cerr << "DPU run time " << DPU_run_time << "\n";
+    // std::cerr << "DPU-CPU time " << DPU_CPU_time << "\n";
+    // std::cerr << "compare result time " << compare_time << "\n";
+    // std::cerr << "insert result time " << insert_time << "\n";
+}   
 
 // class core
 void Core::read_rna_file(std::string &readFile) {
@@ -130,6 +185,10 @@ void Core::read_rna_file(std::string &readFile) {
     kseq_t *seq;
     int l = 0;
     fp = gzopen(readFile.c_str(), "r");
+    if(!fp) {
+        std::cerr << "open file error\n"; 
+        exit(1);
+    }
     seq = kseq_init(fp);
     Read_packet seqs;
     int rp_size = 0;
@@ -179,4 +238,20 @@ void Core::allocate_pipeline_worker() {
             th.join();
     }
     // output similarity class
+    std::cerr << "[output] write similarity class ...\n" ;
+    std::ofstream out;
+    out.open(outputFile, std::ios::out);
+    if (!out.is_open()) {
+		std::cerr << "Error: output file \"" << outputFile << "\" could not be opened!\n";
+		exit(1);
+	}
+    for(auto& entry: similarity_class) {
+        // class
+        for(auto& t: entry.first)
+            out << t << " ";
+        out << " = ";
+        // count
+        out << entry.second << "\n";
+    }
+    out << "\n";
 } 
