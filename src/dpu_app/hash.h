@@ -1,27 +1,25 @@
-#ifndef HASH_H
-#define HASH_H
+#ifndef DPU_HASH_H
+#define DPU_HASH_H
 
 #include <stdlib.h>
 #include <stdint.h> 
 #include "dpu.h"
 #include "dpu_def.h"
 
-#undef get16bits
-#if (defined(__GNUC__) && defined(__i386__)) || defined(__WATCOMC__) \
-  || defined(_MSC_VER) || defined (__BORLANDC__) || defined (__TURBOC__)
-#define get16bits(d) (*((const uint16_t *) (d)))
-#endif
+#define BIG_CONSTANT(x) (x##LLU)
 
-#if !defined (get16bits)
-#define get16bits(d) ((((uint32_t)(((const uint8_t *)(d))[1])) << 8)\
-                       +(uint32_t)(((const uint8_t *)(d))[0]) )
-#endif
+static uint64_t getblock ( const uint64_t * p );
+//-----------------------------------------------------------------------------
+// MurmurHash2, 64-bit versions, by Austin Appleby
 
-uint32_t SuperFastHash (const char *data, int len);
+// The same caveats as 32-bit MurmurHash2 apply here - beware of alignment 
+// and endian-ness issues if used across multiple platforms.
 
-//void MurmurHash3_x64_32 ( const void * key, int len, uint32_t seed, void * out );
-void MurmurHash3_x64_64 ( const void *key, int len, uint32_t seed, void *out );
+// 64-bit hash for 64-bit platforms
+
+uint64_t murmurhash ( const void * key, int len, uint64_t seed );
 
 uint64_t hash(Kmer* key);
+
 
 #endif

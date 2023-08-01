@@ -164,13 +164,13 @@ void KmerIndex::Build(const ProgramOptions& opt) {
   
   num_trans = seqs.size();
   
-  // for each target, create it's own equivalence class
-  for (int i = 0; i < seqs.size(); i++ ) {
-    std::vector<int> single(1,i);
-    //ecmap.insert({i,single});
-    ecmap.push_back(single);
-    ecmapinv.insert({single,i});
-  }
+//   // for each target, create it's own equivalence class
+//   for (int i = 0; i < seqs.size(); i++ ) {
+//     std::vector<int> single(1,i);
+//     //ecmap.insert({i,single});
+//     ecmap.push_back(single);
+//     ecmapinv.insert({single,i});
+//   }
   
   Buildhashtable(seqs);
   hashtable_aligner();
@@ -199,6 +199,7 @@ void KmerIndex::Buildhashtable(const std::vector<std::string>& seqs) {
 	uint32_t remain = seqs.size() % dpu_n;
 	int16_t i = 0;
 	Kmer::set_k(k);
+	first_tid_buf.resize(dpu_n);
 	table_buf.resize(dpu_n);
 	t_max_buf.resize(dpu_n);
 	size_buf.resize(dpu_n);
@@ -207,6 +208,7 @@ void KmerIndex::Buildhashtable(const std::vector<std::string>& seqs) {
 		t_max = 1;
 		kmap.init_table(1024);
 		int16_t start = i;
+		first_tid_buf[d].push_back((int32_t)start);
 		for (; ((i < start + (int16_t)seq_n) && i < seqs.size()) ; i++) {
 			const char *s = seqs[i].c_str();
 			KmerIterator kit(s), kit_end;
@@ -218,6 +220,7 @@ void KmerIndex::Buildhashtable(const std::vector<std::string>& seqs) {
 					assert(minimizer.size() == W(k));
 					// get the mini one
 					auto ret = kmap.insert(get_mini(minimizer), i);
+					// std::cerr << get_mini(minimizer).toString() << " insert" << "\n";
 					if(t_max < ret)
 						t_max = ret;
 					minimizer.pop_front();
@@ -246,8 +249,7 @@ void KmerIndex::Buildhashtable(const std::vector<std::string>& seqs) {
 				}
 			}
 			for(; t_size < t_max;) {
-				int16_t t = -1;
-				v |= ((uint64_t)65535);
+				v |= ((uint64_t)0xFFFF);
 				t_size ++;
 				if(t_size % 4 == 0) {
 					table_buf[d].push_back(v);
@@ -257,10 +259,42 @@ void KmerIndex::Buildhashtable(const std::vector<std::string>& seqs) {
 					v <<= 16;
 				}
 			}
-			// if(kmap.table[h].first.tobinary() != EMPTY_KMER) {
-			// 	std::cerr << "\n";
-			// 	getchar();
-			// }
+		}
+		bool key = 1;
+		int i = 0;
+		int ee = 0;
+		int h = 0;
+		while(ee < table_buf[d].size() ) {
+			if(key)
+				h ++;
+			uint64_t entry = table_buf[d][ee];
+			if(key && entry == EMPTY_KMER) {
+				// ee += 1;
+				ee += (t_max / 4) ;
+			} 
+			else {
+				if(key) {
+					std::cerr << "at h = " << h - 1  << " "; 
+					std::bitset<64> binary(entry);
+					std::cerr << entry << "(" << toString(entry, k)<< ") | ";
+					key = 0;
+				}
+				else {
+					int16_t t1 = (int16_t)((((uint64_t)entry)>>(0))&(0xFFFF));
+					int16_t t2 = (int16_t)((((uint64_t)entry)>>(16))&(0xFFFF));
+					int16_t t3 = (int16_t)((((uint64_t)entry)>>(32))&(0xFFFF));
+					int16_t t4 = (int16_t)((((uint64_t)entry)>>(48))&(0xFFFF));
+					std::cerr << std::dec << t4 << " " << t3 << " " << t2 << " " << t1 << " ";
+					i += 4;
+					if( i == t_max) {
+						i = 0;
+						key = 1;
+						std::cerr << "\n";
+						//getchar();
+					}
+				}
+			}
+			ee ++;
 		}
   	}
   	std::cerr << " done " << std::endl;
@@ -296,6 +330,7 @@ void KmerIndex::write(const std::string& index_out, bool writeKmerTable) {
 	// build & write hash table and  
 	int d = 0;
 	for(auto& table: table_buf) {
+		out.write((char *)&first_tid_buf[d][0], sizeof(first_tid_buf[d][0]));
 		out.write((char *)&t_max_buf[d][0], sizeof(t_max_buf[d][0]));
 		out.write((char *)&size_buf[d][0], sizeof(size_buf[d][0]));
 		for(auto& entry: table) {
@@ -341,8 +376,12 @@ void KmerIndex::load(ProgramOptions& opt) {
 	table_buf.resize(dpu_n);
 	t_max_buf.resize(dpu_n);
 	size_buf.resize(dpu_n);
+	first_tid_buf.resize(dpu_n);
 
 	for (int i = 0; i < dpu_n; i++) {
+		int32_t first_tid;
+		in.read((char *)&first_tid, sizeof(first_tid));
+		first_tid_buf[i].push_back(first_tid);
 		int t_max;
 		in.read((char *)&t_max, sizeof(t_max));
 		t_max_buf[i].push_back(t_max);

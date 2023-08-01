@@ -178,18 +178,19 @@ struct KmerHashTable {
   }
 
   int insert(const Kmer &key, const int16_t &value) {
-    //cerr << "inserting " << key.toString() << " = " << val.second << endl;
+    // std::cerr << "inserting " << key.toString() << " = " << value << "\n";
     if ((pop + (pop>>4))> size_) { // if more than 80% full
       //cerr << "-- triggered resize--" << endl;
       reserve(2*size_, false);
     }
 
-    size_t h = hasher(key) & (size_-1);
+    // size_t h = hasher(key) & (size_-1);
+    size_t h = key.tobinary() & (size_-1);
     // std::cerr << key.tobinary() << key.toString() << " hash value = " << h << std::endl;
     for (;; h = (h+1!=size_ ? h+1 : 0)) {
-      //cerr << "  lookup at " << h << endl;
+      // std::cerr << "  lookup at " << h << std::endl;
       if (table[h].first == empty.first || table[h].first == deleted.first) {
-        //cerr << "   found empty slot" << endl;
+        // std::cerr << "   found empty slot" << std::endl;
         // empty slot, insert here
         std::set<int16_t> set = {value};
         table[h] = std::make_pair(key, set);
@@ -199,7 +200,10 @@ struct KmerHashTable {
       else if (table[h].first == key) {
         table[h].second.insert(value);
         // same key, update value
-        //cerr << "   found key already here " << table[h].first.toString() << " = " << table[h].second <<  endl;
+        // std::cerr << "   found key already here " << table[h].first.toString() << " = ";
+        // for(auto& t: table[h].second )
+        //   std::cerr << t << " ";
+        // std::cerr <<  std::endl;
         return table[h].second.size();
       }
     }
@@ -212,7 +216,8 @@ struct KmerHashTable {
       reserve(2*size_, false);
     }
 
-    size_t h = hasher(val.first) & (size_-1);
+    // size_t h = hasher(val.first) & (size_-1);
+    size_t h = val.first.tobinary() & (size_-1);
     // std::cerr << val.first.tobinary() << val.first.toString() << " hash value = " << h << std::endl;
     for (;; h = (h+1!=size_ ? h+1 : 0)) {
       //cerr << "  lookup at " << h << endl;

@@ -5,7 +5,7 @@
 #define PACKET_SIZE 12
 #define READ_LEN 150
 #define PACKET_CAPACITY (READ_LEN*PACKET_SIZE)
-#define T_LEN 100
+#define T_LEN 168
 #define MAX_table_n 5000000
 
 typedef struct dpu_result{

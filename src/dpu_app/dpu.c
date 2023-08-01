@@ -1,5 +1,4 @@
 #include "dpu.h"
-#include "hash.h"
 #include <mram.h>
 #include <assert.h>
 #include "mutex.h"
@@ -81,7 +80,7 @@ void find_next(KmerIterator* kmerIterator, size_tt i, size_tt j, uint8_t last_va
 
 void forwardBase(Kmer* kmer, const char b) {
   uint64_t mask = EMPTY_KMER;
-  mask &= ((2UL<<(2*k)) -1);
+  mask &= ((1UL<<(2*k)) -1);
 	kmer->longs[0] = kmer->longs[0] << 2;
 	switch(b) {
 		case 'A': kmer->longs[0] |= (0x00UL); break;
@@ -180,7 +179,6 @@ void toString(Kmer* kmer) {
 
   char buf[MAX_K];
   char*s = buf;
-  size_t j,l;
   for (int i = k - 1; i >= 0; i--) {
     uint64_t v = kmer->longs[0];
     v = v >> (2*i);

@@ -6,7 +6,7 @@
 #else
 #include "dpu_app/dpu_def.h"
 #endif
-
+#include <bitset>
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -20,7 +20,7 @@
 #include "Kmer.hpp"
 #include "KmerIterator.hpp"
 #include "KmerHashTable.h"
-#include "hash.hpp"
+#include "hash.h"
 
 inline int W(int k) {
   if(k < 10)
@@ -30,43 +30,46 @@ inline int W(int k) {
   return k -16;
 }
 inline Kmer get_mini(std::deque<Kmer> &dq) {
+  // std::cerr << "get_mini ";
   Kmer seed;
   uint64_t seed_binary = EMPTY_KMER;
   for(auto& kmer: dq) {
+    // std::cerr << kmer.toString() << " ";
     if(seed_binary >= kmer.tobinary()) {
       seed_binary = kmer.tobinary();
       seed = kmer;
     }
   }
+  // std::cerr << " == " << seed.toString() << "\n";
   return seed;
 }
 
 std::string revcomp(const std::string s);
 
 
-struct TRInfo {
-  int trid;
-  int start;
-  int stop; //exclusive [start,stop)
-  bool sense; // true for sense, false for anti-sense
-};
+// struct TRInfo {
+//   int trid;
+//   int start;
+//   int stop; //exclusive [start,stop)
+//   bool sense; // true for sense, false for anti-sense
+// };
 
-using EcMap = std::vector<std::vector<int>>; //std::unordered_map<int, std::vector<int>>;
+// using EcMap = std::vector<std::vector<int>>; //std::unordered_map<int, std::vector<int>>;
 
-struct SortedVectorHasher {
-  size_t operator()(const std::vector<int>& v) const {
-    uint64_t r = 0;
-    int i=0;
-    for (auto x : v) {
-      uint64_t t;
-      MurmurHash3_x64_64(&x,sizeof(x), 0,&t);
-      t = (x>>i) | (x<<(64-i));
-      r = r ^ t;
-      i = (i+1)%64;
-    }
-    return r;
-  }
-};
+// struct SortedVectorHasher {
+//   size_t operator()(const std::vector<int>& v) const {
+//     uint64_t r = 0;
+//     int i=0;
+//     for (auto x : v) {
+//       uint64_t t;
+//       MurmurHash3_x64_64(&x,sizeof(x), 0,&t);
+//       t = (x>>i) | (x<<(64-i));
+//       r = r ^ t;
+//       i = (i+1)%64;
+//     }
+//     return r;
+//   }
+// };
 
 struct KmerEntry {
   int32_t contig; // id of contig
@@ -92,25 +95,25 @@ struct KmerEntry {
   }
 };
 
-struct ContigToTranscript {
-  int trid;
-  int pos; 
-  bool sense; // true for sense, 
-};
+// struct ContigToTranscript {
+//   int trid;
+//   int pos; 
+//   bool sense; // true for sense, 
+// };
 
-struct Contig {
-  int id; // internal id
-  int length; // number of k-mers
-  int ec;
-  std::string seq; // sequence
-  std::vector<ContigToTranscript> transcripts;
-};
+// struct Contig {
+//   int id; // internal id
+//   int length; // number of k-mers
+//   int ec;
+//   std::string seq; // sequence
+//   std::vector<ContigToTranscript> transcripts;
+// };
 
-struct DBGraph {
-  std::vector<int> ecs; // contig id -> ec-id
-  std::vector<Contig> contigs; // contig id -> contig
-//  std::vector<pair<int, bool>> edges; // contig id -> edges
-};
+// struct DBGraph {
+//   std::vector<int> ecs; // contig id -> ec-id
+//   std::vector<Contig> contigs; // contig id -> contig
+// //  std::vector<pair<int, bool>> edges; // contig id -> edges
+// };
 
 struct KmerIndex {
   
@@ -140,10 +143,6 @@ struct KmerIndex {
   int num_trans; // number of targets
 
   KmerHashTable<std::set<int16_t>, KmerHash> kmap;
-  EcMap ecmap;
-  DBGraph dbGraph;
-  std::unordered_map<std::vector<int>, int, SortedVectorHasher> ecmapinv;
-  const size_t INDEX_VERSION = 10; // increase this every time you change the fileformat
 
   std::vector<int> target_lens_;
 
@@ -155,6 +154,7 @@ struct KmerIndex {
 	std::vector<std::vector<int32_t>> t_max_buf;
 	std::vector<int32_t> k_buf;
   std::vector<std::vector<size_t>> size_buf;
+  std::vector<std::vector<int32_t>> first_tid_buf;
 	std::vector<std::vector<uint64_t>> table_buf;
 	// std::vector<std::map<Kmer, std::vector<int16_t>>>* hash_tables;
 	int t_max;

@@ -14,7 +14,10 @@
 #include <cstring>
 #include <string>
 
-#include "hash.hpp"
+#include "hash.h"
+
+
+std::string toString(uint64_t kmer, int k);
 
 /* Short description:
  *  - Store kmer strings by using 2 bits per base instead of 8

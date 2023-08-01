@@ -166,7 +166,6 @@ bool Kmer::operator<(const Kmer& o) const {
 // post: The DNA string in km is now equal to s
 void Kmer::set_kmer(const char *s)  {
   longs = 0X0UL;
-  // std::cerr << "set kmer: ";
   for (size_t i = 0; i < k; ++i) {
     assert(*s != '\0');
     switch(*s) {
@@ -177,8 +176,6 @@ void Kmer::set_kmer(const char *s)  {
     }
     s++;
   }
-  // std::cerr << "\n";
-  // std::cerr << longs << "\n";
 }
 
 uint64_t Kmer::tobinary() const {
@@ -189,9 +186,7 @@ uint64_t Kmer::tobinary() const {
 // pre:
 // post: i is the hash value of km
 uint64_t Kmer::hash() const {
-  uint64_t ret;
-  MurmurHash3_x64_64((const void *)&longs,8,0,&ret);
-  return ret;
+  return MurmurHash64A ((const void *)&longs, 8, 0);
 }
 
 
@@ -203,7 +198,7 @@ uint64_t Kmer::hash() const {
 Kmer Kmer::forwardBase(const char b) const {
   Kmer km(*this);
   uint64_t mask = EMPTY_KMER;
-  mask &= ((2UL<<(2*k)) -1);
+  mask &= ((1UL<<(2*k)) -1);
   
   km.longs = km.longs << 2;
   switch(b) {
@@ -225,7 +220,7 @@ Kmer Kmer::forwardBase(const char b) const {
 Kmer Kmer::backwardBase(const char b) const {
   Kmer km(*this);
   uint64_t mask = EMPTY_KMER;
-  mask &= ((2UL<<(2*k)) -1);
+  mask &= ((1UL<<(2*k)) -1);
   km.longs = km.longs >> 2;
   switch(b) {
       case 'A': km.longs |= (0x00UL << 2*(k-1)); break;
@@ -311,3 +306,23 @@ unsigned int Kmer::k = 0;
 unsigned int Kmer::k_bytes = 0;
 //unsigned int Kmer::k_longs = 0;
 unsigned int Kmer::k_modmask = 0;
+
+std::string toString(uint64_t kmer, int k) {
+  char buf[32];
+  char *s = buf;
+  size_t j,l;
+  uint64_t kmer2;
+  for (int i = k - 1; i >= 0; i--) {
+    kmer2 = kmer >> (2*i);
+    // std::cerr << (kmer& 0x03) << " ";
+    switch( kmer2 & 0x03 ) {
+      case 0x00: *s = 'A'; ++s; break;
+      case 0x01: *s = 'T'; ++s; break;
+      case 0x02: *s = 'C'; ++s; break;
+      case 0x03: *s = 'G'; ++s; break;
+    }
+  }
+
+  *s = '\0';
+  return std::string(buf);
+}

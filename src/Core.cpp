@@ -73,36 +73,41 @@ void Pipeline_worker::operator()(int n, KmerIndex *ki) {
 Partial_result_host Pipeline_worker::compare() {
     for(int i = 0; i < dpu_n; i++) {
         for(int j = 0; j < PACKET_SIZE; j++) {
-            assert(transfer_from_dpu_buf->at(i).at(j).kmer >= 0);
-            if(transfer_from_dpu_buf->at(i).at(j).len < 0 || transfer_from_dpu_buf->at(i).at(j).len > T_LEN) {
-                std::cerr << transfer_from_dpu_buf->at(i).at(j).len << " < 0 !\n";
-                for(int ll = 0; ll < T_LEN; ll ++)
-                    std::cerr << transfer_from_dpu_buf->at(i).at(j).T[ll] << " ";
-                std::cerr << "\n";
-            }
             if(partial_result_buf->at(i).at(j).kmer < transfer_from_dpu_buf->at(i).at(j).kmer) {
+                // std::cerr << "now " << transfer_from_dpu_buf->at(i).at(j).kmer << " vs ";
+                // std::cerr << "pre " << partial_result_buf->at(i).at(j).kmer << "\n";
                 partial_result_buf->at(i).at(j).kmer = transfer_from_dpu_buf->at(i).at(j).kmer;
                 partial_result_buf->at(i).at(j).len = transfer_from_dpu_buf->at(i).at(j).len;
                 int16_t *ptr = transfer_from_dpu_buf->at(i).at(j).T;
                 partial_result_buf->at(i).at(j).T = std::set<int16_t>(ptr, ptr + transfer_from_dpu_buf->at(i).at(j).len);
+                // for(auto &t : partial_result_buf->at(i).at(j).T)
+                //     std::cerr << t << " ";
+                // std::cerr << "\n";
             }
             else if(partial_result_buf->at(i).at(j).kmer == transfer_from_dpu_buf->at(i).at(j).kmer) {
+                // std::cerr << "now " << transfer_from_dpu_buf->at(i).at(j).kmer << " vs ";
+                // std::cerr << "pre " << partial_result_buf->at(i).at(j).kmer << "\n";
                 for(int l2 = 0; l2 < transfer_from_dpu_buf->at(i).at(j).len; l2 ++)
                     partial_result_buf->at(i).at(j).T.insert(transfer_from_dpu_buf->at(i).at(j).T[l2]);
                 // for(auto& map_item: check_map)
                 //     pushed_items.push_back(map_item);
                 partial_result_buf->at(i).at(j).len = partial_result_buf->at(i).at(j).T.size();
+                // for(auto &t : partial_result_buf->at(i).at(j).T)
+                //     std::cerr << t << " ";
+                // std::cerr << "\n";
             }
-            //assert(partial_result_buf->at(i).at(j).len >= 0);
-            //assert(partial_result_buf->at(i).at(j).len <= T_LEN);
+            // std::cerr << "pre " << partial_result_buf->at(i).at(j).kmer << "-";
+            // std::cerr << partial_result_buf->at(i).at(j).len << " ";
         }
+        // std::cerr << "\n";
     }
-    Partial_result_host final_result = partial_result_buf->front();
-    partial_result_buf->pop_front();
+    // getchar();
+    Partial_result_host final_result = partial_result_buf->back();
+    partial_result_buf->pop_back();
     dpu_result_host tmp;
-    memset(&tmp, 0, sizeof(dpu_result_host));
+    tmp.kmer = 0;
     Partial_result_host pr_tmp(PACKET_SIZE, tmp);
-    partial_result_buf->push_back(pr_tmp);
+    partial_result_buf->push_front(pr_tmp);
     return final_result;
 }
 
@@ -114,7 +119,7 @@ void Pipeline_worker::map() {
     DPUs.load(DPU_PROGRAM);
 
     // transfer database and parameters
-    DPUs.copy("kmer_max" ,KI->kmer_max_buf);
+    DPUs.copy("first_tid" ,KI->first_tid_buf);
     DPUs.copy("t_max" ,KI->t_max_buf);
     DPUs.copy("k" ,KI->k_buf);
     DPUs.copy("table" ,KI->table_buf);
@@ -131,8 +136,8 @@ void Pipeline_worker::map() {
         Read_packet rp = get(end);
         if(end)
             stage ++;
-        transfer_to_dpu_buf->pop_front();
-        transfer_to_dpu_buf->push_back(rp);
+        transfer_to_dpu_buf->pop_back();
+        transfer_to_dpu_buf->push_front(rp);
         std::vector<Read_packet> to_dpu_buf({transfer_to_dpu_buf->begin(), transfer_to_dpu_buf->end()});
         auto t_end = std::chrono::high_resolution_clock::now();
         get_read_time += std::chrono::duration_cast<std::chrono::duration<double>>(t_end - t_start).count();
@@ -150,6 +155,7 @@ void Pipeline_worker::map() {
         DPU_run_time += std::chrono::duration_cast<std::chrono::duration<double>>(t_end - t_start).count();
        
         // DPUs.log(std::cerr);
+        //getchar();
         t_start = std::chrono::high_resolution_clock::now();
         DPUs.copy(*transfer_from_dpu_buf, "result");
         t_end = std::chrono::high_resolution_clock::now();
@@ -249,7 +255,7 @@ void Core::allocate_pipeline_worker() {
         // class
         for(auto& t: entry.first)
             out << t << " ";
-        out << " = ";
+        out << ": ";
         // count
         out << entry.second << "\n";
     }
