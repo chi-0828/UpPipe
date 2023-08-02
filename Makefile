@@ -18,7 +18,7 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
 	g++ -c -o $@ $< $(CXXFLAGS) $(INCLUDE)
 
 $(DPU):
-	$(MAKE) -C src/dpu_app/ TASKLETS=12
+	$(MAKE) -C src/dpu_app/ TASKLETS=24
 
 clean: 
 	rm -f $(target) obj/*.o obj/dpu_app/*

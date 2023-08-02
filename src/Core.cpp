@@ -7,12 +7,8 @@
 KSEQ_INIT(gzFile, gzread)
 #endif
 
-// #ifdef DPU_HEAD
-// #define DPU_HEAD 1
-// #else
 #include <dpu>
 using namespace dpu;
-// #endif
 
 // global RNA read pool
 bool end = false;
@@ -56,7 +52,7 @@ void insert(Partial_result_host &pr) {
     }
 }
 
-// pipeline worker 
+// pipeline worker initialization
 void Pipeline_worker::operator()(int n, KmerIndex *ki) {
     dpu_n = n;
     KI = ki;
@@ -70,38 +66,23 @@ void Pipeline_worker::operator()(int n, KmerIndex *ki) {
     map();
 }
 
+// this function keeps the best partial rsults
 Partial_result_host Pipeline_worker::compare() {
     for(int i = 0; i < dpu_n; i++) {
         for(int j = 0; j < PACKET_SIZE; j++) {
             if(partial_result_buf->at(i).at(j).kmer < transfer_from_dpu_buf->at(i).at(j).kmer) {
-                // std::cerr << "now " << transfer_from_dpu_buf->at(i).at(j).kmer << " vs ";
-                // std::cerr << "pre " << partial_result_buf->at(i).at(j).kmer << "\n";
                 partial_result_buf->at(i).at(j).kmer = transfer_from_dpu_buf->at(i).at(j).kmer;
                 partial_result_buf->at(i).at(j).len = transfer_from_dpu_buf->at(i).at(j).len;
                 int16_t *ptr = transfer_from_dpu_buf->at(i).at(j).T;
                 partial_result_buf->at(i).at(j).T = std::set<int16_t>(ptr, ptr + transfer_from_dpu_buf->at(i).at(j).len);
-                // for(auto &t : partial_result_buf->at(i).at(j).T)
-                //     std::cerr << t << " ";
-                // std::cerr << "\n";
             }
             else if(partial_result_buf->at(i).at(j).kmer == transfer_from_dpu_buf->at(i).at(j).kmer) {
-                // std::cerr << "now " << transfer_from_dpu_buf->at(i).at(j).kmer << " vs ";
-                // std::cerr << "pre " << partial_result_buf->at(i).at(j).kmer << "\n";
                 for(int l2 = 0; l2 < transfer_from_dpu_buf->at(i).at(j).len; l2 ++)
                     partial_result_buf->at(i).at(j).T.insert(transfer_from_dpu_buf->at(i).at(j).T[l2]);
-                // for(auto& map_item: check_map)
-                //     pushed_items.push_back(map_item);
                 partial_result_buf->at(i).at(j).len = partial_result_buf->at(i).at(j).T.size();
-                // for(auto &t : partial_result_buf->at(i).at(j).T)
-                //     std::cerr << t << " ";
-                // std::cerr << "\n";
             }
-            // std::cerr << "pre " << partial_result_buf->at(i).at(j).kmer << "-";
-            // std::cerr << partial_result_buf->at(i).at(j).len << " ";
         }
-        // std::cerr << "\n";
     }
-    // getchar();
     Partial_result_host final_result = partial_result_buf->back();
     partial_result_buf->pop_back();
     dpu_result_host tmp;
@@ -111,11 +92,10 @@ Partial_result_host Pipeline_worker::compare() {
     return final_result;
 }
 
+// start pipeline mapping
 void Pipeline_worker::map() {
-    // std::cerr << "[DPU] allocating " << dpu_n << " DPUs" << std::endl;
     auto DPUs = DpuSet::allocate(dpu_n);
     auto dpu = DPUs.dpus();
-    // std::cerr << "[DPU] loading " << DPU_PROGRAM << std::endl;
     DPUs.load(DPU_PROGRAM);
 
     // transfer database and parameters
@@ -128,11 +108,10 @@ void Pipeline_worker::map() {
     // pipeline management
     int stage = 0;
     bool end = false;
-    
     double get_read_time = 0, CPU_DPU_time = 0, DPU_run_time = 0, DPU_CPU_time = 0, compare_time = 0, insert_time = 0;
     while(stage < dpu_n) {
+        // ====== start CPU-DPU transfer =====
         auto t_start = std::chrono::high_resolution_clock::now();
-        // std::cerr << "[pipe] stage " << stage << " end " << end << std::endl;
         Read_packet rp = get(end);
         if(end)
             stage ++;
@@ -142,26 +121,28 @@ void Pipeline_worker::map() {
         auto t_end = std::chrono::high_resolution_clock::now();
         get_read_time += std::chrono::duration_cast<std::chrono::duration<double>>(t_end - t_start).count();
         
-        // std::cerr << "[pipe] copy to " << std::endl;
         t_start = std::chrono::high_resolution_clock::now();
         DPUs.copy("reads", to_dpu_buf);
         t_end = std::chrono::high_resolution_clock::now();
         CPU_DPU_time += std::chrono::duration_cast<std::chrono::duration<double>>(t_end - t_start).count();
+        // ====== end CPU-DPU transfer =====
         
-        // std::cerr << "+===============\n";
+        // ====== start DPU execution =====
         t_start = std::chrono::high_resolution_clock::now();
         DPUs.exec();
         t_end = std::chrono::high_resolution_clock::now();
         DPU_run_time += std::chrono::duration_cast<std::chrono::duration<double>>(t_end - t_start).count();
-       
+        // ====== end DPU execution =====
+
+        // to print DPU-printf
         // DPUs.log(std::cerr);
-        //getchar();
+        
+        // ====== start DPU-CPU transfer =====
         t_start = std::chrono::high_resolution_clock::now();
         DPUs.copy(*transfer_from_dpu_buf, "results");
         t_end = std::chrono::high_resolution_clock::now();
         DPU_CPU_time += std::chrono::duration_cast<std::chrono::duration<double>>(t_end - t_start).count();
         
-        // std::cerr << "-===============\n";
 
         t_start = std::chrono::high_resolution_clock::now();
         Partial_result_host final_result = compare();
@@ -173,13 +154,15 @@ void Pipeline_worker::map() {
         insert(final_result);
         t_end = std::chrono::high_resolution_clock::now();
         insert_time += std::chrono::duration_cast<std::chrono::duration<double>>(t_end - t_start).count();
+        // ====== end DPU-CPU transfer =====
     }
-    std::cerr << "get reads time " << get_read_time << " s\n";
-    std::cerr << "CPU-DPU time " << CPU_DPU_time << " s\n";
-    std::cerr << "DPU run time " << DPU_run_time << "\n";
-    std::cerr << "DPU-CPU time " << DPU_CPU_time << "\n";
-    std::cerr << "compare result time " << compare_time << "\n";
-    std::cerr << "insert result time " << insert_time << "\n";
+    // uncomment here to output breakdown execution time 
+    // std::cerr << "get reads time " << get_read_time << " s\n";
+    // std::cerr << "CPU-DPU time " << CPU_DPU_time << " s\n";
+    // std::cerr << "DPU run time " << DPU_run_time << "s\n";
+    // std::cerr << "DPU-CPU time " << DPU_CPU_time << "s\n";
+    // std::cerr << "compare result time " << compare_time << "s\n";
+    // std::cerr << "insert result time " << insert_time << "s\n";
 }   
 
 // class core
@@ -230,6 +213,7 @@ void Core::read_rna_file(std::string &readFile) {
 } 
 
 void Core::allocate_pipeline_worker() {
+    std::cerr << "[UpPipe] start processing ... \n";
     std::vector<std::thread> UpPipe_sys;
     for(int i = 0; i < pw_n +1 ; ++i) {
         if(i == 0) {
@@ -244,7 +228,7 @@ void Core::allocate_pipeline_worker() {
             th.join();
     }
     // output similarity class
-    std::cerr << "[output] write similarity class ...\n" ;
+    std::cerr << "[output] write similarity class ... " ;
     std::ofstream out;
     out.open(outputFile, std::ios::out);
     if (!out.is_open()) {
@@ -259,5 +243,5 @@ void Core::allocate_pipeline_worker() {
         // count
         out << entry.second << "\n";
     }
-    out << "\n";
+    std::cerr << "done\n";
 } 

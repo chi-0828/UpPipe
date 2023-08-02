@@ -184,8 +184,8 @@ struct KmerHashTable {
       reserve(2*size_, false);
     }
 
-    // size_t h = hasher(key) & (size_-1);
-    size_t h = key.tobinary() & (size_-1);
+    size_t h = hasher(key) & (size_-1);
+    // size_t h = key.tobinary() & (size_-1);
     // std::cerr << key.tobinary() << key.toString() << " hash value = " << h << std::endl;
     for (;; h = (h+1!=size_ ? h+1 : 0)) {
       // std::cerr << "  lookup at " << h << std::endl;
@@ -216,8 +216,8 @@ struct KmerHashTable {
       reserve(2*size_, false);
     }
 
-    // size_t h = hasher(val.first) & (size_-1);
-    size_t h = val.first.tobinary() & (size_-1);
+    size_t h = hasher(val.first) & (size_-1);
+    // size_t h = val.first.tobinary() & (size_-1);
     // std::cerr << val.first.tobinary() << val.first.toString() << " hash value = " << h << std::endl;
     for (;; h = (h+1!=size_ ? h+1 : 0)) {
       //cerr << "  lookup at " << h << endl;
