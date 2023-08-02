@@ -9,13 +9,18 @@
 UpPipe is a DPU-based RNA abundance quantification design; the paper of this project is published in [Design Automation Conference (DAC) 2023](https://www.dac.com/)
 
 ## Citation
-- [Link to Paper]()
-- Online proceedings of DAC'23 are avaliable soon
+- Online proceedings of DAC'23 are available soon
+
+## Materials
+- [Link to paper]()
+- [Link to slides](https://drive.google.com/file/d/1XaUErirVkLod5UZwsReGUwLDN2Af026Q/view?usp=drive_link)
+- [Link to poster](https://drive.google.com/file/d/1OGtMobOE1xZWm_qes1gTFDT9nAnk1r31/view?usp=drive_link)
+
 
 ## Usage
 ### Allocate transcriptome to DPU(s)
 - `KMER SIZE` should be 3, 5, ..., 31
-- `NUMBER OF DPU(s) in a PIPELINE WORKER` should less than 64 in our suggestion
+- `NUMBER OF DPU(s) in a PIPELINE WORKER` should be less than 64 in our suggestion
 ```=shell
 ./UpPipe build \
             -k KMER SIZE  \
@@ -24,7 +29,7 @@ UpPipe is a DPU-based RNA abundance quantification design; the paper of this pro
             -f TRANSCRIPTOME FILE PATH
 ```
 ### Run alignment step for quantification
-- The size of k-mer is already set in `INPUT INDEX FILE`, the setting cannot be changed in this step 
+- The size of k-mer is already set in `INPUT INDEX FILE`, this setting cannot be changed in this step 
 ```=shell
 ./UpPipe alignment \
             -i INPUT INDEX FILE PATH \
@@ -32,9 +37,9 @@ UpPipe is a DPU-based RNA abundance quantification design; the paper of this pro
             -f INPUT RNA READ FILE PATH
 ```
 ### Suggestion
-- `KMER SIZE` less than 7 may leads to inaccurate mapping result
-- `NUMBER OF DPU(s) in a PIPELINE WORKER` should less than 64 in optimal situations
-- However, the `number of transcript / NUMBER OF DPU(s) in a PIPELINE WORKER` must less than 104 (`T_LEN in dpu_app/dpu_def.h`), so `NUMBER OF DPU(s) in a PIPELINE WORKER` may exceeds 64 in some cases
+- `KMER SIZE` less than 7 may lead to inaccurate mapping result
+- `NUMBER OF DPU(s) in a PIPELINE WORKER` should be less than 64 in optimal situations
+- However, the `number of transcript / NUMBER OF DPU(s) in a PIPELINE WORKER` must be less than 104 (`T_LEN in dpu_app/dpu_def.h`), so `NUMBER OF DPU(s) in a PIPELINE WORKER` may exceed 64 in some cases
 - Making `T_LEN` greater than 104 may cause the DPU to fault due to insufficient WRAM
 - The project is still in progress for extension work
 
@@ -47,7 +52,7 @@ UpPipe is a DPU-based RNA abundance quantification design; the paper of this pro
             -d 60 \
             -f test/tran.fa
 ```
-- To run alignment with 10 pipline workers
+- To run alignment with 10 pipeline workers
 ```=shell
 ./UpPipe alignment \
             -i test/test.idx \
