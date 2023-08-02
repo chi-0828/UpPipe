@@ -8,7 +8,7 @@
 
 #define BIG_CONSTANT(x) (x##LLU)
 
-static uint64_t getblock ( const uint64_t * p );
+uint64_t getblock ( const uint64_t * p );
 //-----------------------------------------------------------------------------
 // MurmurHash2, 64-bit versions, by Austin Appleby
 

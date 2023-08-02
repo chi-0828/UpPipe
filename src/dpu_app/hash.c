@@ -1,10 +1,7 @@
 #include "hash.h"
 
-static uint64_t getblock ( const uint64_t * p )
+uint64_t getblock ( const uint64_t * p )
 {
-#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
-  return *p;
-#else
   const uint8_t *c = (const uint8_t *)p;
   return (uint64_t)c[0] |
 	 (uint64_t)c[1] <<  8 |
@@ -14,7 +11,6 @@ static uint64_t getblock ( const uint64_t * p )
 	 (uint64_t)c[5] << 40 |
 	 (uint64_t)c[6] << 48 |
 	 (uint64_t)c[7] << 56;
-#endif
 }
 
 uint64_t murmurhash ( const void * key, int len, uint64_t seed )

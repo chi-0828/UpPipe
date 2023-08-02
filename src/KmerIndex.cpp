@@ -220,7 +220,6 @@ void KmerIndex::Buildhashtable(const std::vector<std::string>& seqs) {
 					assert(minimizer.size() == W(k));
 					// get the mini one
 					auto ret = kmap.insert(get_mini(minimizer), i);
-					// std::cerr << get_mini(minimizer).toString() << " insert" << "\n";
 					if(t_max < ret)
 						t_max = ret;
 					minimizer.pop_front();
@@ -260,42 +259,43 @@ void KmerIndex::Buildhashtable(const std::vector<std::string>& seqs) {
 				}
 			}
 		}
-		bool key = 1;
-		int i = 0;
-		int ee = 0;
-		int h = 0;
-		while(ee < table_buf[d].size() ) {
-			if(key)
-				h ++;
-			uint64_t entry = table_buf[d][ee];
-			if(key && entry == EMPTY_KMER) {
-				// ee += 1;
-				ee += (t_max / 4) ;
-			} 
-			else {
-				if(key) {
-					std::cerr << "at h = " << h - 1  << " "; 
-					std::bitset<64> binary(entry);
-					std::cerr << entry << "(" << toString(entry, k)<< ") | ";
-					key = 0;
-				}
-				else {
-					int16_t t1 = (int16_t)((((uint64_t)entry)>>(0))&(0xFFFF));
-					int16_t t2 = (int16_t)((((uint64_t)entry)>>(16))&(0xFFFF));
-					int16_t t3 = (int16_t)((((uint64_t)entry)>>(32))&(0xFFFF));
-					int16_t t4 = (int16_t)((((uint64_t)entry)>>(48))&(0xFFFF));
-					std::cerr << std::dec << t4 << " " << t3 << " " << t2 << " " << t1 << " ";
-					i += 4;
-					if( i == t_max) {
-						i = 0;
-						key = 1;
-						std::cerr << "\n";
-						//getchar();
-					}
-				}
-			}
-			ee ++;
-		}
+		// uncomment the following code block can print the hash table
+		// bool key = 1;
+		// int i = 0;
+		// int ee = 0;
+		// int h = 0;
+		// while(ee < table_buf[d].size() ) {
+		// 	if(key)
+		// 		h ++;
+		// 	uint64_t entry = table_buf[d][ee];
+		// 	if(key && entry == EMPTY_KMER) {
+		// 		// ee += 1;
+		// 		ee += (t_max / 4) ;
+		// 	} 
+		// 	else {
+		// 		if(key) {
+		// 			std::cerr << "at h = " << h - 1  << " "; 
+		// 			std::bitset<64> binary(entry);
+		// 			std::cerr << entry << "(" << toString(entry, k)<< ") | ";
+		// 			key = 0;
+		// 		}
+		// 		else {
+		// 			int16_t t1 = (int16_t)((((uint64_t)entry)>>(0))&(0xFFFF));
+		// 			int16_t t2 = (int16_t)((((uint64_t)entry)>>(16))&(0xFFFF));
+		// 			int16_t t3 = (int16_t)((((uint64_t)entry)>>(32))&(0xFFFF));
+		// 			int16_t t4 = (int16_t)((((uint64_t)entry)>>(48))&(0xFFFF));
+		// 			std::cerr << std::dec << t4 << " " << t3 << " " << t2 << " " << t1 << " ";
+		// 			i += 4;
+		// 			if( i == t_max) {
+		// 				i = 0;
+		// 				key = 1;
+		// 				std::cerr << "\n";
+		// 				//getchar();
+		// 			}
+		// 		}
+		// 	}
+		// 	ee ++;
+		// }
   	}
   	std::cerr << " done " << std::endl;
 }

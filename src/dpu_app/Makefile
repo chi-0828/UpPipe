@@ -1,6 +1,6 @@
 INCLUDE := -I.
 LDFLAGS := 
-CFLAGS := -g -Wall
+CFLAGS := -g -Wall -O3
 OBJ := ../../obj/dpu_app/
 target = $(OBJ)dpu
 CC := dpu-upmem-dpurte-clang -DNR_TASKLETS=$(TASKLETS)

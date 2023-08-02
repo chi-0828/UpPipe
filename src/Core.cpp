@@ -157,7 +157,7 @@ void Pipeline_worker::map() {
         // DPUs.log(std::cerr);
         //getchar();
         t_start = std::chrono::high_resolution_clock::now();
-        DPUs.copy(*transfer_from_dpu_buf, "result");
+        DPUs.copy(*transfer_from_dpu_buf, "results");
         t_end = std::chrono::high_resolution_clock::now();
         DPU_CPU_time += std::chrono::duration_cast<std::chrono::duration<double>>(t_end - t_start).count();
         
@@ -174,12 +174,12 @@ void Pipeline_worker::map() {
         t_end = std::chrono::high_resolution_clock::now();
         insert_time += std::chrono::duration_cast<std::chrono::duration<double>>(t_end - t_start).count();
     }
-    // std::cerr << "get reads time " << get_read_time << " s\n";
-    // std::cerr << "CPU-DPU time " << CPU_DPU_time << " s\n";
-    // std::cerr << "DPU run time " << DPU_run_time << "\n";
-    // std::cerr << "DPU-CPU time " << DPU_CPU_time << "\n";
-    // std::cerr << "compare result time " << compare_time << "\n";
-    // std::cerr << "insert result time " << insert_time << "\n";
+    std::cerr << "get reads time " << get_read_time << " s\n";
+    std::cerr << "CPU-DPU time " << CPU_DPU_time << " s\n";
+    std::cerr << "DPU run time " << DPU_run_time << "\n";
+    std::cerr << "DPU-CPU time " << DPU_CPU_time << "\n";
+    std::cerr << "compare result time " << compare_time << "\n";
+    std::cerr << "insert result time " << insert_time << "\n";
 }   
 
 // class core
