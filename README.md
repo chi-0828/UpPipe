@@ -15,7 +15,8 @@ UpPipe is a DPU-based RNA abundance quantification design; the paper of this pro
 - [Link to paper]()
 - [Link to slides](https://drive.google.com/file/d/1XaUErirVkLod5UZwsReGUwLDN2Af026Q/view?usp=drive_link)
 - [Link to poster](https://drive.google.com/file/d/1OGtMobOE1xZWm_qes1gTFDT9nAnk1r31/view?usp=drive_link)
-
+- [UPMEM SDK](https://sdk.upmem.com/2021.3.0/index.html)
+- [DPU-based kallisto](https://github.com/chi-0828/RNA-Abundance-Quantification-on-UPMEM)
 
 ## Usage
 ### Allocate transcriptome to DPU(s)
@@ -59,5 +60,4 @@ UpPipe is a DPU-based RNA abundance quantification design; the paper of this pro
             -r 10 \
             -f test/read.fa
 ```
-
 
