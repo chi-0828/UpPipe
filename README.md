@@ -1,4 +1,4 @@
-# UpPipe: In-Memory Processing based RNA-seq Quantification
+# UpPipe: A Novel Pipeline Management on In-Memory Processors (UPMEM DPU) for RNA-seq Quantification
 [![GitHub repository](https://img.shields.io/badge/GitHub-chi--0828%2FUpPipe-blue.svg)](https://github.com/chi-0828/UpPipe)
 ![GitHub top language](https://img.shields.io/github/languages/top/chi-0828/UpPipe?color=blue&logo=Ionic&logoColor=white)
 ![GitHub commit activity (branch)](https://img.shields.io/github/commit-activity/w/chi-0828/UpPipe)
