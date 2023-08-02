@@ -6,7 +6,7 @@
 [![C++ version](https://img.shields.io/badge/c++-14-yellow)](https://docs.npmjs.com/)
 [![g++ version](https://img.shields.io/badge/gcc-8.3.0-yellow)](https://docs.npmjs.com/)
 <br>
-UpPipe is a DPU-based RNA abundance quantification design, the paper of this project is published in Design Automation Conference (DAC) 2023.
+UpPipe is a DPU-based RNA abundance quantification design; the paper of this project is published in [Design Automation Conference (DAC) 2023](https://www.dac.com/)
 
 ## Citation
 - [Link to Paper]()
