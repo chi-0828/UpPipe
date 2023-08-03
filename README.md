@@ -18,7 +18,16 @@ UpPipe is a DPU-based RNA abundance quantification design; the paper of this pro
 - [DPU-based kallisto](https://github.com/chi-0828/RNA-Abundance-Quantification-on-UPMEM)
 - [UPMEM use cases](https://www.upmem.com/ressources/)
 - [UPMEM SDK](https://sdk.upmem.com/2021.3.0/index.html)
-  
+
+## start
+```=shell
+git clone https://github.com/chi-0828/UpPipe.git
+cd UpPipe
+chmod +x build.sh
+./build.sh
+make -j4
+```
+
 ## Usage
 ### Allocate transcriptome to DPU(s)
 - `KMER SIZE` should be 3, 5, ..., 31
