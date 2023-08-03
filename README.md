@@ -9,6 +9,7 @@
 UpPipe is a DPU-based RNA abundance quantification design; the paper of this project is published in [Design Automation Conference (DAC) 2023](https://www.dac.com/)
 
 ## Citation
+> Liang-Chi Chen,  Chien-Chung Ho, and Yuan-Hao Chang, “UpPipe: A Novel Pipeline Management on In-Memory Processors for RNA-seq Quantification," ACM/IEEE Design Automation Conference (DAC), San Francisco, CA, USA, July 9-13, 2023.
 - Online proceedings of DAC'23 are available soon
 
 ## Materials
@@ -19,7 +20,7 @@ UpPipe is a DPU-based RNA abundance quantification design; the paper of this pro
 - [UPMEM use cases](https://www.upmem.com/ressources/)
 - [UPMEM SDK](https://sdk.upmem.com/2021.3.0/index.html)
 
-## start
+## Start
 ```=shell
 git clone https://github.com/chi-0828/UpPipe.git
 cd UpPipe
