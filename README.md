@@ -22,7 +22,7 @@ UpPipe is an RNA abundance quantification design on a real processing-near-memor
 - [UPMEM SDK](https://sdk.upmem.com/2021.3.0/index.html)
 
 ## Hardware/System Prerequisites
-The project has to be run on a system equipped with UPMEM DRAM Processing Units (DPUs), and the system requires installing the [UPMEM SDK](https://sdk.upmem.com/2021.3.0/index.html)
+The project has to be run on a system equipped with UPMEM DRAM Processing Units (DPUs), and the kernel system requires installing the [UPMEM SDK](https://sdk.upmem.com/2021.3.0/index.html)
 
 ## Start
 ```=shell
@@ -68,22 +68,22 @@ make -j4
             -d 60 \
             -f test/tran.fa
 ```
-- To run alignment with 10 pipeline workers
+- To run alignment with 40 pipeline workers
 ```=shell
 ./UpPipe alignment \
             -i test/test.idx \
-            -r 10 \
+            -r 40 \
             -f test/read.fa
 ```
-- UpPiep uses 40 pipeline workers
+- Performance: UpPiep uses 40 pipeline workers
 ```
 real    0m2.747s
 ```
-- UpPiep uses 20 pipeline workers
+- Performance: UpPiep uses 20 pipeline workers
 ```
 real    0m3.584s
 ```
-- [kallisto](https://github.com/pachterlab/kallisto)
+- Performance: [kallisto](https://github.com/pachterlab/kallisto)
 ```
 real    0m4.003s
 ```
