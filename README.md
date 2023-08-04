@@ -22,7 +22,7 @@ UpPipe is an RNA abundance quantification design on a real processing-near-memor
 - [UPMEM SDK](https://sdk.upmem.com/2021.3.0/index.html)
 
 ## Hardware/System Prerequisites
-The project has to be run on a system equipped with UPMEM DRAM Processing Units (DPUs), and the system requires installing the UPMEM SDK](https://sdk.upmem.com/2021.3.0/index.html)
+The project has to be run on a system equipped with UPMEM DRAM Processing Units (DPUs), and the system requires installing the [UPMEM SDK](https://sdk.upmem.com/2021.3.0/index.html)
 
 ## Start
 ```=shell
