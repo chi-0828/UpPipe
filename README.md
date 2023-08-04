@@ -14,12 +14,15 @@ UpPipe is an RNA abundance quantification design on a real processing-near-memor
 - Online proceedings of DAC'23 are available soon
 
 ## Materials
-- [Link to paper]()
+- Link to paper (coming soon)
 - [Link to slides](https://drive.google.com/file/d/1XaUErirVkLod5UZwsReGUwLDN2Af026Q/view?usp=drive_link)
 - [Link to poster](https://drive.google.com/file/d/1OGtMobOE1xZWm_qes1gTFDT9nAnk1r31/view?usp=drive_link)
 - [DPU-based kallisto](https://github.com/chi-0828/RNA-Abundance-Quantification-on-UPMEM)
 - [UPMEM use cases](https://www.upmem.com/ressources/)
 - [UPMEM SDK](https://sdk.upmem.com/2021.3.0/index.html)
+
+## Hardware/System Prerequisites
+The project has to be run on a system equipped with UPMEM DRAM Processing Units (DPUs), and the system requires installing the UPMEM SDK](https://sdk.upmem.com/2021.3.0/index.html)
 
 ## Start
 ```=shell
