@@ -54,9 +54,9 @@ make -j4
 ```
 ### Suggestion
 - `KMER SIZE` less than 7 may lead to inaccurate mapping result
-- `NUMBER OF DPU(s) in a PIPELINE WORKER` should be less than 64 in optimal situations
-- However, the `number of transcript / NUMBER OF DPU(s) in a PIPELINE WORKER` must be less than 104 (`T_LEN in dpu_app/dpu_def.h`), so `NUMBER OF DPU(s) in a PIPELINE WORKER` may exceed 64 in some cases
-- Making `T_LEN` greater than 104 may cause the DPU to fault due to insufficient WRAM
+- `NUMBER OF DPU(s) in a PIPELINE WORKER` should be less than 64 for optimal performance
+- The `number of transcript / NUMBER OF DPU(s) in a PIPELINE WORKER` must be less than 200 (`COUNT_LEN in dpu_app/dpu_def.h`)
+- Making `T_LEN` greater than 200 may cause the DPU to fault due to insufficient WRAM
 - The project is still in progress for extension work
 
 ## Test
