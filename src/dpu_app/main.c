@@ -14,8 +14,8 @@ __mram_noinit char reads[PACKET_CAPACITY];
 __mram_noinit dpu_result results[PACKET_SIZE];
 
 // 60 MB hash table (from hsot)
-__mram_noinit uint64_t table_key[MAX_table_n];
-__mram_noinit uint64_t table_value[MAX_table_n];
+__mram_noinit uint64_t table_key[MAX_TABLE_N];
+__mram_noinit uint64_t table_value[MAX_TABLE_N];
 
 // read info (from hsot)
 __host size_tt size_;
@@ -73,11 +73,11 @@ int main(){
 
 		// get the RNA read from mram to WRAM
 		int len = READ_LEN;
-		__dma_aligned char read_cache[160];
+		__dma_aligned char read_cache[WRAM_READ_LEN];
 		int start = readid*len;
 		int start2 = RoundDown(&start);
 		int shift_count = start - start2;
-		mram_read(reads+(start2), read_cache, 160);
+		mram_read(reads+(start2), read_cache, WRAM_READ_LEN);
 		// printf("%d read = %.150s\n", readid, read_cache+shift_count);
 		
 		// start alignment
@@ -101,10 +101,10 @@ int main(){
 				// printf("h %llu %llu\n", h, size_);
 				int16_t wram_index = 0, flag = 0;
 				// pre-fetch more data into WRAM for reducing data movement between WRAM and MRAM
-				__dma_aligned uint64_t table_kmer_cache[WRAM_PREFETCH_size];
+				__dma_aligned uint64_t table_kmer_cache[WRAM_PREFETCH_SIZE];
 				__mram_ptr void *target_addr = (table_key + h);
-				mram_read(target_addr, &table_kmer_cache, sizeof(uint64_t)*WRAM_PREFETCH_size);
-				while (wram_index < WRAM_PREFETCH_size) {
+				mram_read(target_addr, &table_kmer_cache, sizeof(uint64_t)*WRAM_PREFETCH_SIZE);
+				while (wram_index < WRAM_PREFETCH_SIZE) {
 					// __mram_ptr void *target_addr = (table_key + h + wram_index);
 					// mram_read(target_addr, &table_kmer_cache, sizeof(uint64_t));
 					// printf("kmer %lu vs %lu\n", table_kmer_cache, kit.kmer.longs[0]);
