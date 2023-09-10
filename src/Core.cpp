@@ -102,7 +102,8 @@ void Pipeline_worker::map() {
     DPUs.copy("first_tid" ,KI->first_tid_buf);
     DPUs.copy("t_max" ,KI->t_max_buf);
     DPUs.copy("k" ,KI->k_buf);
-    DPUs.copy("table" ,KI->table_buf);
+    DPUs.copy("table_key" ,KI->table_buf_key);
+    DPUs.copy("table_value" ,KI->table_buf_value);
     DPUs.copy("size_" ,KI->size_buf);
 
     // pipeline management
@@ -157,12 +158,12 @@ void Pipeline_worker::map() {
         // ====== end DPU-CPU transfer =====
     }
     // uncomment here to output breakdown execution time 
-    // std::cerr << "get reads time " << get_read_time << " s\n";
-    // std::cerr << "CPU-DPU time " << CPU_DPU_time << " s\n";
-    // std::cerr << "DPU run time " << DPU_run_time << "s\n";
-    // std::cerr << "DPU-CPU time " << DPU_CPU_time << "s\n";
-    // std::cerr << "compare result time " << compare_time << "s\n";
-    // std::cerr << "insert result time " << insert_time << "s\n";
+    std::cerr << "get reads time " << get_read_time << " s\n";
+    std::cerr << "CPU-DPU time " << CPU_DPU_time << " s\n";
+    std::cerr << "DPU run time " << DPU_run_time << "s\n";
+    std::cerr << "DPU-CPU time " << DPU_CPU_time << "s\n";
+    std::cerr << "compare result time " << compare_time << "s\n";
+    std::cerr << "insert result time " << insert_time << "s\n";
 }   
 
 // class core

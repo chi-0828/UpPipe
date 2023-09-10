@@ -14,7 +14,8 @@ __mram_noinit char reads[PACKET_CAPACITY];
 __mram_noinit dpu_result results[PACKET_SIZE];
 
 // 60 MB hash table (from hsot)
-__mram_noinit uint64_t table[MAX_table_n];
+__mram_noinit uint64_t table_key[MAX_table_n];
+__mram_noinit uint64_t table_value[MAX_table_n];
 
 // read info (from hsot)
 __host size_tt size_;
@@ -37,18 +38,18 @@ int RoundUp(int* a)
 }
 
 // get the most similar transcript
-void sort_by_count(dpu_result *t) {
+void sort_by_count(dpu_result *t, int16_t *count_map) {
 	int16_t new_len = 0;
 	int16_t max = 0, max_i = 0;
-	for(int16_t i = 0; i < T_LEN; i ++) {
-		if(t->T[i] > max) {
-			max = t->T[i];
+	for(int16_t i = 0; i < COUNT_LEN; i ++) {
+		if(count_map[i] > max) {
+			max = count_map[i];
 			max_i = i;
 		}
 	}
 	if(max != 0) {
-		for(int16_t i = 0; i < T_LEN; i ++) {
-			if(t->T[i] == max) {
+		for(int16_t i = 0; i < COUNT_LEN; i ++) {
+			if(count_map[i] == max) {
 				t->T[new_len] = i + (int16_t)first_tid;;
 				new_len++;
 			}
@@ -62,12 +63,13 @@ int main(){
 
 	// init
 	unsigned int tasklet_id = me();
-	int gap = t_max/4 + 1;
 
 	for(int readid = tasklet_id; readid < PACKET_SIZE; readid+=NR_TASKLETS){
 		// init result for this read
 		__dma_aligned dpu_result t;
 		memset(&t, 0, sizeof(dpu_result));
+		int16_t count_map[COUNT_LEN];
+		memset(&count_map, 0, sizeof(int16_t)*COUNT_LEN);
 
 		// get the RNA read from mram to WRAM
 		int len = READ_LEN;
@@ -92,61 +94,72 @@ int main(){
 
 			// find the kmer in hash table
 			size_tt h = hash(&kit.kmer) & (size_-1);
-
-			size_tt find = size_, start = (h == 0 ? size_ - 1 : h -1);
+			size_tt start = (h == 0 ? size_ - 1 : h -1);
+			
 			for (;; h = (h+1!=size_ ? h+1 : 0)) {
 				assert(h != start);
 				// printf("h %llu %llu\n", h, size_);
-				__dma_aligned uint64_t table_kmer_cache;
-				__mram_ptr void *target_addr = (table+(h*gap));
-				mram_read(target_addr, &table_kmer_cache, sizeof(uint64_t));
-				// printf("kmer %lu vs %lu\n", table_kmer_cache, kit.kmer.longs[0]);
+				int16_t wram_index = 0, flag = 0;
+				// pre-fetch more data into WRAM for reducing data movement between WRAM and MRAM
+				__dma_aligned uint64_t table_kmer_cache[WRAM_PREFETCH_size];
+				__mram_ptr void *target_addr = (table_key + h);
+				mram_read(target_addr, &table_kmer_cache, sizeof(uint64_t)*WRAM_PREFETCH_size);
+				while (wram_index < WRAM_PREFETCH_size) {
+					// __mram_ptr void *target_addr = (table_key + h + wram_index);
+					// mram_read(target_addr, &table_kmer_cache, sizeof(uint64_t));
+					// printf("kmer %lu vs %lu\n", table_kmer_cache, kit.kmer.longs[0]);
 
-				if (table_kmer_cache == EMPTY_KMER) {
-					// empty slot, not in table
-					find = size_;
-					break;
-				} else if (table_kmer_cache == kit.kmer.longs[0]) {
-					// same key, found
-					find = h;
-					break;
-				} 
-			}
-			// get information in hash table
-			if (find != size_) {
-				// TODO: read more in one time
-				for(int chunk = 0; chunk < gap-1; chunk++) {
-					__dma_aligned uint64_t table_T_cache;
-					mram_read(table+(find*gap)+1+chunk, &table_T_cache, sizeof(uint64_t));
-					int16_t t1 = (int16_t)((((uint64_t)table_T_cache)>>(0))&(0xFFFF));
-					int16_t t2 = (int16_t)((((uint64_t)table_T_cache)>>(16))&(0xFFFF));
-					int16_t t3 = (int16_t)((((uint64_t)table_T_cache)>>(32))&(0xFFFF));
-					int16_t t4 = (int16_t)((((uint64_t)table_T_cache)>>(48))&(0xFFFF));
-			
-					if(t4 != -1) {
-						t_per_kmer[t_per_kmer_len++] = t4;
-						if(t3 != -1){
-							t_per_kmer[t_per_kmer_len++] = t3;
-							if(t2 != -1){
-								t_per_kmer[t_per_kmer_len++] = t2;
-								if(t1 != -1){
-									t_per_kmer[t_per_kmer_len++] = t1;
+					if (table_kmer_cache[wram_index] == EMPTY_KMER) {
+						// empty slot, not in table
+						flag = 1;
+						break;
+					} else if (table_kmer_cache[wram_index] == kit.kmer.longs[0]) {
+						// same key, found
+						// get information in hash table
+						for(int chunk = 0; chunk < t_max/4; chunk++) {
+							// reuse table_kmer_cache for reading table
+							// need value of the found key
+							mram_read(table_value+h+chunk, &table_kmer_cache, sizeof(uint64_t));
+							
+							int16_t t1 = (int16_t)((((uint64_t)table_kmer_cache[0])>>(0))&(0xFFFF));
+							int16_t t2 = (int16_t)((((uint64_t)table_kmer_cache[0])>>(16))&(0xFFFF));
+							int16_t t3 = (int16_t)((((uint64_t)table_kmer_cache[0])>>(32))&(0xFFFF));
+							int16_t t4 = (int16_t)((((uint64_t)table_kmer_cache[0])>>(48))&(0xFFFF));
+					
+							if(t4 != -1) {
+								t_per_kmer[t_per_kmer_len++] = t4;
+								if(t3 != -1){
+									t_per_kmer[t_per_kmer_len++] = t3;
+									if(t2 != -1){
+										t_per_kmer[t_per_kmer_len++] = t2;
+										if(t1 != -1){
+											t_per_kmer[t_per_kmer_len++] = t1;
+										}
+									}
 								}
 							}
+							assert(t_per_kmer_len <= T_LEN);
 						}
-					}
-					assert(t_per_kmer_len <= T_LEN);
-				}
 
-				// count the transcript id
-				for(int16_t tid = 0; tid < t_per_kmer_len; tid ++) {
-					int16_t arr_id = t_per_kmer[tid] - (int16_t)first_tid;
-					t.T[arr_id] ++;
+						// count the transcript id
+						for(int16_t tid = 0; tid < t_per_kmer_len; tid ++) {
+							int16_t arr_id = t_per_kmer[tid] - (int16_t)first_tid;
+							assert(arr_id < COUNT_LEN);
+							count_map[arr_id] ++;
+						}
+						
+						flag = 1;
+						break;
+					}
+					wram_index ++;
+					h++;
 				}
+				if(flag)
+					break;
 			}
 		}	
 		
-		sort_by_count(&t);
+		sort_by_count(&t, count_map);
 		// move the result to MRAM
 		mram_write(&t, results+(readid), sizeof(dpu_result));
 

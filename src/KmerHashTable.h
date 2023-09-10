@@ -20,6 +20,7 @@ struct KmerHashTable {
   size_t size_, pop;
   value_type empty;
   value_type deleted;
+  int collison, collison_seq;
 
 
 // ---- iterator ----
@@ -89,16 +90,21 @@ struct KmerHashTable {
   KmerHashTable(const Hash& h = Hash() ) : hasher(h), table(nullptr), size_(0), pop(0) {
     empty.first.set_empty();
     deleted.first.set_deleted();
+    collison = 0;
+    collison_seq = 0;
     init_table(1024);
   }
 
   KmerHashTable(size_t sz, const Hash& h = Hash() ) : hasher(h), table(nullptr), size_(0), pop(0) {
     empty.first.set_empty();
+    collison = 0;
+    collison_seq = 0;
     deleted.first.set_deleted();
     init_table((size_t) (1.2*sz));
   }
 
   ~KmerHashTable() {
+    //std::cerr << "pop: " << pop << " collison: " << collison << "\n";
     clear_table();
   }
 
@@ -185,6 +191,7 @@ struct KmerHashTable {
     }
 
     size_t h = hasher(key) & (size_-1);
+    int collison_flag = 0;
     // size_t h = key.tobinary() & (size_-1);
     // std::cerr << key.tobinary() << key.toString() << " hash value = " << h << std::endl;
     for (;; h = (h+1!=size_ ? h+1 : 0)) {
@@ -206,6 +213,12 @@ struct KmerHashTable {
         // std::cerr <<  std::endl;
         return table[h].second.size();
       }
+      else if (table[h].first != key) {
+        if(1||!collison_flag) {
+          collison_flag = 1;
+          collison ++;
+        }
+      }
     }
   }
 
@@ -215,7 +228,7 @@ struct KmerHashTable {
       //cerr << "-- triggered resize--" << endl;
       reserve(2*size_, false);
     }
-
+    int collison_flag = 0;
     size_t h = hasher(val.first) & (size_-1);
     // size_t h = val.first.tobinary() & (size_-1);
     // std::cerr << val.first.tobinary() << val.first.toString() << " hash value = " << h << std::endl;
@@ -235,6 +248,12 @@ struct KmerHashTable {
         //cerr << "   found key already here " << table[h].first.toString() << " = " << table[h].second <<  endl;
         return {iterator(this, h), table[h].second.size()};
       }
+      else if (table[h].first != val.first) {
+        if(1||!collison_flag) {
+          collison_flag = 1;
+          collison ++;
+        }
+      }
     }
   }
 
@@ -252,7 +271,8 @@ struct KmerHashTable {
 
     size_ = rndup(sz);
     pop = 0;
-
+    collison = 0;
+    collison_seq = 0;
     table = new value_type[size_];
     std::fill(table, table+size_, empty);
     for (size_t i = 0; i < old_size_; i++) {

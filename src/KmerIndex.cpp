@@ -8,7 +8,8 @@
 #include "kseq.h"
 #include <chrono>
 
-
+int co_total;
+int inset_total;
 #ifndef KSEQ_INIT_READY
 #define KSEQ_INIT_READY
 KSEQ_INIT(gzFile, gzread)
@@ -179,12 +180,21 @@ void KmerIndex::Build(const ProgramOptions& opt) {
 
 void KmerIndex::hashtable_aligner() {
 	std::cerr << "[build] align table size  ... "; std::cerr.flush();
-	for(auto& table: table_buf) {
-		if(kmer_max < table.size())
-			kmer_max = table.size();
+	for(auto& table: table_buf_key) {
+		if(key_max < table.size())
+			key_max = table.size();
 	}
-	for(auto& table: table_buf) {
-		for(;table.size() < kmer_max;) {
+	for(auto& table: table_buf_key) {
+		for(;table.size() < key_max;) {
+			table.push_back(EMPTY_KMER);
+		}
+	}
+	for(auto& table: table_buf_value) {
+		if(value_max < table.size())
+			value_max = table.size();
+	}
+	for(auto& table: table_buf_value) {
+		for(;table.size() < value_max;) {
 			table.push_back(EMPTY_KMER);
 		}
 	}
@@ -192,6 +202,7 @@ void KmerIndex::hashtable_aligner() {
 }
 
 void KmerIndex::Buildhashtable(const std::vector<std::string>& seqs) {
+	std::cerr << "seqs.size() ... " << seqs.size() << "\n";
 	std::cerr << "[build] build hash table ... "; std::cerr.flush();
 	// gather all k-mers for each group
 	// #seqs in a group = ((#seqs)/(#dpu in a pipeline worker))
@@ -200,7 +211,8 @@ void KmerIndex::Buildhashtable(const std::vector<std::string>& seqs) {
 	int16_t i = 0;
 	Kmer::set_k(k);
 	first_tid_buf.resize(dpu_n);
-	table_buf.resize(dpu_n);
+	table_buf_key.resize(dpu_n);
+	table_buf_value.resize(dpu_n);
 	t_max_buf.resize(dpu_n);
 	size_buf.resize(dpu_n);
 	for (int d = 0; d < dpu_n; d++) {
@@ -219,6 +231,7 @@ void KmerIndex::Buildhashtable(const std::vector<std::string>& seqs) {
 				if(minimizer.size() >= W(k)) {
 					assert(minimizer.size() == W(k));
 					// get the mini one
+					inset_total ++;
 					auto ret = kmap.insert(get_mini(minimizer), i);
 					if(t_max < ret)
 						t_max = ret;
@@ -231,7 +244,7 @@ void KmerIndex::Buildhashtable(const std::vector<std::string>& seqs) {
 		size_buf[d].push_back(kmap.size_);
 		// std::cerr << "t_max " << t_max << " kmap.size_" << kmap.size_ << "\n";
 		for (size_t h = 0; h < kmap.size_; h++) {
-			table_buf[d].push_back(kmap.table[h].first.tobinary());
+			table_buf_key[d].push_back(kmap.table[h].first.tobinary());
 			int t_size = 0;
 			uint64_t v = 0UL;
 			// std::cerr <<  kmap.table[h].first.toString()  << " : ";
@@ -240,7 +253,7 @@ void KmerIndex::Buildhashtable(const std::vector<std::string>& seqs) {
 				v |= ((uint64_t)t);
 				t_size ++;
 				if(t_size % 4 == 0) {
-					table_buf[d].push_back(v);
+					table_buf_value[d].push_back(v);
 					v = 0UL;
 				}
 				else {
@@ -251,7 +264,7 @@ void KmerIndex::Buildhashtable(const std::vector<std::string>& seqs) {
 				v |= ((uint64_t)0xFFFF);
 				t_size ++;
 				if(t_size % 4 == 0) {
-					table_buf[d].push_back(v);
+					table_buf_value[d].push_back(v);
 					v = 0UL;
 				}
 				else {
@@ -298,6 +311,8 @@ void KmerIndex::Buildhashtable(const std::vector<std::string>& seqs) {
 		// }
   	}
   	std::cerr << " done " << std::endl;
+	// std::cerr << "Avg col =  " << (double)co_total/inset_total << std::endl;
+	// std::cerr << "col =  " << co_total << " ins = " << inset_total << std::endl;
 }
 
 void KmerIndex::write(const std::string& index_out, bool writeKmerTable) {
@@ -320,7 +335,8 @@ void KmerIndex::write(const std::string& index_out, bool writeKmerTable) {
 
 	// write hash table size
 	
-	out.write((char *)&kmer_max, sizeof(kmer_max));
+	out.write((char *)&key_max, sizeof(key_max));
+	out.write((char *)&value_max, sizeof(value_max));
 	//std::cerr << t_max << "\n";
 	//std::cerr << kmer_max << "\n";
 
@@ -329,11 +345,14 @@ void KmerIndex::write(const std::string& index_out, bool writeKmerTable) {
 
 	// build & write hash table and  
 	int d = 0;
-	for(auto& table: table_buf) {
+	for(auto& table: table_buf_key) {
 		out.write((char *)&first_tid_buf[d][0], sizeof(first_tid_buf[d][0]));
 		out.write((char *)&t_max_buf[d][0], sizeof(t_max_buf[d][0]));
 		out.write((char *)&size_buf[d][0], sizeof(size_buf[d][0]));
 		for(auto& entry: table) {
+			out.write((char *)&entry, sizeof(entry));
+		}
+		for(auto& entry: table_buf_value[d]) {
 			out.write((char *)&entry, sizeof(entry));
 		}
 		d ++;
@@ -361,19 +380,20 @@ void KmerIndex::load(ProgramOptions& opt) {
 		exit(1);
 	}
 	// read chunk
-	int buf[3];
-	in.read((char *)&buf, sizeof(int)*3);
+	int buf[4];
+	in.read((char *)&buf, sizeof(int)*4);
 	// k
 	k = buf[0];
 	// size of hash table
-	kmer_max = buf[1];
+	key_max = buf[1];
+	value_max = buf[2];
 	// number of dpus
-	dpu_n = buf[2];
+	dpu_n = buf[3];
 	
-  	kmer_max_buf = std::vector<int32_t>(1, kmer_max);
 	k_buf = std::vector<int32_t>(1, k);
 
-	table_buf.resize(dpu_n);
+	table_buf_key.resize(dpu_n);
+	table_buf_value.resize(dpu_n);
 	t_max_buf.resize(dpu_n);
 	size_buf.resize(dpu_n);
 	first_tid_buf.resize(dpu_n);
@@ -389,19 +409,33 @@ void KmerIndex::load(ProgramOptions& opt) {
 		in.read((char *)&size_, sizeof(size_));
 		size_buf[i].push_back(size_);
 		// read 
-		for (int j = 0; j < kmer_max/1024; j++) {
+		for (int j = 0; j < key_max/1024; j++) {
 			// entry 
 			uint64_t buff[1024];
 			in.read((char *)&buff, sizeof(uint64_t)*1024);
 			for(int a = 0; a < 1024; a ++)
-				table_buf[i].push_back(buff[a]);
+				table_buf_key[i].push_back(buff[a]);
 		}
-		for (int j = 0; j < kmer_max%1024; j++) {
+		for (int j = 0; j < key_max%1024; j++) {
 			// entry 
 			uint64_t entry;
 			in.read((char *)&entry, sizeof(entry));
 			// to transfer buffer
-			table_buf[i].push_back(entry);
+			table_buf_key[i].push_back(entry);
+		}
+		for (int j = 0; j < value_max/1024; j++) {
+			// entry 
+			uint64_t buff[1024];
+			in.read((char *)&buff, sizeof(uint64_t)*1024);
+			for(int a = 0; a < 1024; a ++)
+				table_buf_value[i].push_back(buff[a]);
+		}
+		for (int j = 0; j < value_max%1024; j++) {
+			// entry 
+			uint64_t entry;
+			in.read((char *)&entry, sizeof(entry));
+			// to transfer buffer
+			table_buf_value[i].push_back(entry);
 		}
 	}
 	in.close();

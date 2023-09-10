@@ -46,31 +46,6 @@ inline Kmer get_mini(std::deque<Kmer> &dq) {
 
 std::string revcomp(const std::string s);
 
-
-// struct TRInfo {
-//   int trid;
-//   int start;
-//   int stop; //exclusive [start,stop)
-//   bool sense; // true for sense, false for anti-sense
-// };
-
-// using EcMap = std::vector<std::vector<int>>; //std::unordered_map<int, std::vector<int>>;
-
-// struct SortedVectorHasher {
-//   size_t operator()(const std::vector<int>& v) const {
-//     uint64_t r = 0;
-//     int i=0;
-//     for (auto x : v) {
-//       uint64_t t;
-//       MurmurHash3_x64_64(&x,sizeof(x), 0,&t);
-//       t = (x>>i) | (x<<(64-i));
-//       r = r ^ t;
-//       i = (i+1)%64;
-//     }
-//     return r;
-//   }
-// };
-
 struct KmerEntry {
   int32_t contig; // id of contig
   uint32_t _pos; // 0-based forward distance to EC-junction
@@ -117,7 +92,7 @@ struct KmerEntry {
 
 struct KmerIndex {
   
-  KmerIndex(const ProgramOptions& opt) : dpu_n(opt.dpu_n), k(opt.k), num_trans(0), target_seqs_loaded(false), t_max(1), kmer_max(0) {
+  KmerIndex(const ProgramOptions& opt) : dpu_n(opt.dpu_n), k(opt.k), num_trans(0), target_seqs_loaded(false), t_max(1), key_max(0), value_max(0) {
 	  // hash_tables = new std::vector<std::map<Kmer, std::vector<int16_t>>>(dpu_n);
   }
   ~KmerIndex() {
@@ -150,15 +125,16 @@ struct KmerIndex {
   std::vector<std::string> target_seqs_; // populated on demand
   bool target_seqs_loaded;
 
-	std::vector<int32_t> kmer_max_buf;
 	std::vector<std::vector<int32_t>> t_max_buf;
 	std::vector<int32_t> k_buf;
   std::vector<std::vector<size_t>> size_buf;
   std::vector<std::vector<int32_t>> first_tid_buf;
-	std::vector<std::vector<uint64_t>> table_buf;
+	std::vector<std::vector<uint64_t>> table_buf_key;
+  std::vector<std::vector<uint64_t>> table_buf_value;
 	// std::vector<std::map<Kmer, std::vector<int16_t>>>* hash_tables;
 	int t_max;
-	int kmer_max;
+	int key_max;
+  int value_max;
 };
 
 
