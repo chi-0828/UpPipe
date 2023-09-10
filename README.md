@@ -1,4 +1,5 @@
-# UpPipe: A Novel Pipeline Management on In-Memory Processors (UPMEM DPUs) for RNA-seq Quantification
+# UpPipe
+
 [![GitHub repository](https://img.shields.io/badge/GitHub-chi--0828%2FUpPipe-blue.svg)](https://github.com/chi-0828/UpPipe)
 ![GitHub top language](https://img.shields.io/github/languages/top/chi-0828/UpPipe?color=blue&logo=Ionic&logoColor=white)
 ![GitHub commit activity (branch)](https://img.shields.io/github/commit-activity/w/chi-0828/UpPipe)
@@ -6,19 +7,22 @@
 [![C++ version](https://img.shields.io/badge/c++-14-yellow)](https://docs.npmjs.com/)
 [![g++ version](https://img.shields.io/badge/gcc-8.3.0-yellow)](https://docs.npmjs.com/)
 <br>
-UpPipe is a DPU-based RNA abundance quantification design; the paper of this project is published in [Design Automation Conference (DAC) 2023](https://www.dac.com/)
+UpPipe is an RNA abundance quantification design on a real processing-near-memory system ([UPMEM DPU](https://www.upmem.com/)); the paper of this project is published in [Design Automation Conference (DAC) 2023](https://www.dac.com/)
 
 ## Citation
 > Liang-Chi Chen,  Chien-Chung Ho, and Yuan-Hao Chang, “UpPipe: A Novel Pipeline Management on In-Memory Processors for RNA-seq Quantification," ACM/IEEE Design Automation Conference (DAC), San Francisco, CA, USA, July 9-13, 2023.
 - Online proceedings of DAC'23 are available soon
 
 ## Materials
-- [Link to paper]()
+- Link to paper (coming soon)
 - [Link to slides](https://drive.google.com/file/d/1XaUErirVkLod5UZwsReGUwLDN2Af026Q/view?usp=drive_link)
 - [Link to poster](https://drive.google.com/file/d/1OGtMobOE1xZWm_qes1gTFDT9nAnk1r31/view?usp=drive_link)
 - [DPU-based kallisto](https://github.com/chi-0828/RNA-Abundance-Quantification-on-UPMEM)
 - [UPMEM use cases](https://www.upmem.com/ressources/)
 - [UPMEM SDK](https://sdk.upmem.com/2021.3.0/index.html)
+
+## Hardware/System Prerequisites
+The project has to be run on a system equipped with UPMEM DRAM Processing Units (DPUs), and the kernel system requires installing the [UPMEM SDK](https://sdk.upmem.com/2021.3.0/index.html)
 
 ## Start
 ```=shell
@@ -56,19 +60,32 @@ make -j4
 - The project is still in progress for extension work
 
 ## Test
-- To build the index file by 7-mer and allocate to 60 DPUs
+- To build the index file by 11-mer and allocate to 60 DPUs
 ```=shell
 ./UpPipe build \
-            -k 13  \
+            -k 11  \
             -i test/test.idx \
             -d 60 \
             -f test/tran.fa
 ```
-- To run alignment with 10 pipeline workers
+- To run alignment with 40 pipeline workers
 ```=shell
 ./UpPipe alignment \
             -i test/test.idx \
-            -r 10 \
+            -r 40 \
             -f test/read.fa
 ```
+- Performance: UpPiep uses 40 pipeline workers
+```
+real    0m2.747s
+```
+- Performance: UpPiep uses 20 pipeline workers
+```
+real    0m3.584s
+```
+- Performance: [kallisto](https://github.com/pachterlab/kallisto)
+```
+real    0m4.003s
+```
+- To note that UpPipe shows its efficiency more in the large size dataset due to the porcessing-in-memory features
 
