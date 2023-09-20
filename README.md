@@ -11,13 +11,13 @@ UpPipe is an RNA abundance quantification design on a real processing-near-memor
 
 ## Citation
 > Liang-Chi Chen,  Chien-Chung Ho, and Yuan-Hao Chang, “UpPipe: A Novel Pipeline Management on In-Memory Processors for RNA-seq Quantification," ACM/IEEE Design Automation Conference (DAC), San Francisco, CA, USA, July 9-13, 2023.
-> @inproceedings{chen2023uppipe,
+> @inproceedings{chen2023uppipe,  
 > title={UpPipe: A Novel Pipeline Management on In-Memory Processors for RNA-seq Quantification},
-> author={Chen, Liang-Chi and Ho, Chien-Chung and Chang, Yuan-Hao},
-> booktitle={2023 60th ACM/IEEE Design Automation Conference (DAC)},
-> pages={1--6},
->  year={2023},
-> organization={IEEE}
+>             author={Chen, Liang-Chi and Ho, Chien-Chung and Chang, Yuan-Hao},  
+>             booktitle={2023 60th ACM/IEEE Design Automation Conference (DAC)},  
+>             pages={1--6},  
+>             year={2023},  
+>             organization={IEEE}
 > }
 
 ## Materials
