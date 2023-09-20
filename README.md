@@ -17,7 +17,7 @@ Liang-Chi Chen,  Chien-Chung Ho, and Yuan-Hao Chang, “UpPipe: A Novel Pipeline
 >             booktitle={2023 60th ACM/IEEE Design Automation Conference (DAC)},  
 >             pages={1--6},  
 >             year={2023},  
->             organization={IEEE}
+>             organization={IEEE}  
 > }
 
 ## Materials
