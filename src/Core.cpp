@@ -37,23 +37,24 @@ Read_packet get(bool &end) {
 }
 
 // global similarity class record
-std::map<std::set<int16_t>, int> similarity_class;
-void insert(Partial_result_host &pr) {
+void Global_Record::insert(Partial_result_host &pr) {
     for(int j = 0; j < PACKET_SIZE; j++) {
         if(pr.at(j).T.size() == 0)
             continue;
-        // std::sort(key.begin(), key.end());
+        mtx.lock();
         if(similarity_class.find(pr.at(j).T) == similarity_class.end()) {
             similarity_class.insert(std::make_pair(pr.at(j).T, 1));
         }
         else {
             similarity_class.at(pr.at(j).T) ++;
         }
+        mtx.unlock();
     }
 }
 
+
 // pipeline worker initialization
-void Pipeline_worker::operator()(int n, KmerIndex *ki) {
+void Pipeline_worker::operator()(int n, KmerIndex *ki, Global_Record *gr) {
     dpu_n = n;
     KI = ki;
     transfer_to_dpu_buf = new std::deque<Read_packet>(dpu_n, Empty_read_packet);
@@ -63,6 +64,7 @@ void Pipeline_worker::operator()(int n, KmerIndex *ki) {
     dpu_result_host tmp_h;
     Partial_result_host pr_tmp_h(PACKET_SIZE, tmp_h);
     partial_result_buf = new std::deque<Partial_result_host>(dpu_n, pr_tmp_h);
+    record = gr;
     map();
 }
 
@@ -110,60 +112,78 @@ void Pipeline_worker::map() {
     int stage = 0;
     bool end = false;
     double get_read_time = 0, CPU_DPU_time = 0, DPU_run_time = 0, DPU_CPU_time = 0, compare_time = 0, insert_time = 0;
+    std::chrono::_V2::system_clock::time_point t_start, t_end;
     while(stage < dpu_n) {
         // ====== start CPU-DPU transfer =====
-        auto t_start = std::chrono::high_resolution_clock::now();
+        if (TIME_PERF)
+            t_start = std::chrono::high_resolution_clock::now();
         Read_packet rp = get(end);
         if(end)
             stage ++;
         transfer_to_dpu_buf->pop_back();
         transfer_to_dpu_buf->push_front(rp);
         std::vector<Read_packet> to_dpu_buf({transfer_to_dpu_buf->begin(), transfer_to_dpu_buf->end()});
-        auto t_end = std::chrono::high_resolution_clock::now();
-        get_read_time += std::chrono::duration_cast<std::chrono::duration<double>>(t_end - t_start).count();
+        if (TIME_PERF) {
+            t_end = std::chrono::high_resolution_clock::now();
+            get_read_time += std::chrono::duration_cast<std::chrono::duration<double>>(t_end - t_start).count();
+        }
         
-        t_start = std::chrono::high_resolution_clock::now();
+        if (TIME_PERF)
+            t_start = std::chrono::high_resolution_clock::now();
         DPUs.copy("reads", to_dpu_buf);
-        t_end = std::chrono::high_resolution_clock::now();
-        CPU_DPU_time += std::chrono::duration_cast<std::chrono::duration<double>>(t_end - t_start).count();
+        if (TIME_PERF) {
+            t_end = std::chrono::high_resolution_clock::now();
+            CPU_DPU_time += std::chrono::duration_cast<std::chrono::duration<double>>(t_end - t_start).count();
+        }
         // ====== end CPU-DPU transfer =====
         
         // ====== start DPU execution =====
-        t_start = std::chrono::high_resolution_clock::now();
+        if (TIME_PERF) 
+            t_start = std::chrono::high_resolution_clock::now();
         DPUs.exec();
-        t_end = std::chrono::high_resolution_clock::now();
-        DPU_run_time += std::chrono::duration_cast<std::chrono::duration<double>>(t_end - t_start).count();
+        if (TIME_PERF) {
+            t_end = std::chrono::high_resolution_clock::now();
+            DPU_run_time += std::chrono::duration_cast<std::chrono::duration<double>>(t_end - t_start).count();
+        }
         // ====== end DPU execution =====
 
         // to print DPU-printf
         // DPUs.log(std::cerr);
         
         // ====== start DPU-CPU transfer =====
-        t_start = std::chrono::high_resolution_clock::now();
+        if (TIME_PERF) 
+            t_start = std::chrono::high_resolution_clock::now();
         DPUs.copy(*transfer_from_dpu_buf, "results");
-        t_end = std::chrono::high_resolution_clock::now();
-        DPU_CPU_time += std::chrono::duration_cast<std::chrono::duration<double>>(t_end - t_start).count();
+        if (TIME_PERF) {
+            t_end = std::chrono::high_resolution_clock::now();
+            DPU_CPU_time += std::chrono::duration_cast<std::chrono::duration<double>>(t_end - t_start).count();
+        }
         
-
-        t_start = std::chrono::high_resolution_clock::now();
+        if (TIME_PERF) 
+            t_start = std::chrono::high_resolution_clock::now();
         Partial_result_host final_result = compare();
-        t_end = std::chrono::high_resolution_clock::now();
-        compare_time += std::chrono::duration_cast<std::chrono::duration<double>>(t_end - t_start).count();
+        if (TIME_PERF) {
+            t_end = std::chrono::high_resolution_clock::now();
+            compare_time += std::chrono::duration_cast<std::chrono::duration<double>>(t_end - t_start).count();
+        }
         
-
-        t_start = std::chrono::high_resolution_clock::now();
-        insert(final_result);
-        t_end = std::chrono::high_resolution_clock::now();
-        insert_time += std::chrono::duration_cast<std::chrono::duration<double>>(t_end - t_start).count();
+        if (TIME_PERF) 
+            t_start = std::chrono::high_resolution_clock::now();
+        record->insert(final_result);
+        if (TIME_PERF) {
+            t_end = std::chrono::high_resolution_clock::now();
+            insert_time += std::chrono::duration_cast<std::chrono::duration<double>>(t_end - t_start).count();
+        }
         // ====== end DPU-CPU transfer =====
     }
-    // uncomment here to output breakdown execution time 
-    std::cerr << "get reads time " << get_read_time << " s\n";
-    std::cerr << "CPU-DPU time " << CPU_DPU_time << " s\n";
-    std::cerr << "DPU run time " << DPU_run_time << "s\n";
-    std::cerr << "DPU-CPU time " << DPU_CPU_time << "s\n";
-    std::cerr << "compare result time " << compare_time << "s\n";
-    std::cerr << "insert result time " << insert_time << "s\n";
+    if (TIME_PERF) {
+        std::cerr << "get reads time " << get_read_time << " s\n";
+        std::cerr << "CPU-DPU time " << CPU_DPU_time << " s\n";
+        std::cerr << "DPU run time " << DPU_run_time << "s\n";
+        std::cerr << "DPU-CPU time " << DPU_CPU_time << "s\n";
+        std::cerr << "compare result time " << compare_time << "s\n";
+        std::cerr << "insert result time " << insert_time << "s\n";
+    }
 }   
 
 // class core
@@ -216,18 +236,24 @@ void Core::read_rna_file(std::string &readFile) {
 void Core::allocate_pipeline_worker() {
     std::cerr << "[UpPipe] start processing ... \n";
     std::vector<std::thread> UpPipe_sys;
+    
     for(int i = 0; i < pw_n +1 ; ++i) {
         if(i == 0) {
             UpPipe_sys.emplace_back(std::thread(&Core::read_rna_file, this, std::ref(readFile)));
         }
         else {
-            UpPipe_sys.emplace_back(std::thread(Pipeline_worker(), dpu_n, KI));
+            UpPipe_sys.emplace_back(std::thread(Pipeline_worker(), dpu_n, KI, gr));
         }
     }
     for (std::thread & th : UpPipe_sys) {
         if (th.joinable())
             th.join();
     }
+    // for(int i = 1; i < pw_n ; ++i) {
+    //     for(auto const &kv: global_rd->at(i-1).similarity_class)
+    //         global_rd->at(0).kv_insert(kv.first, kv.second);
+    // }
+
     // output similarity class
     std::cerr << "[output] write similarity class ... " ;
     std::ofstream out;
@@ -236,13 +262,15 @@ void Core::allocate_pipeline_worker() {
 		std::cerr << "Error: output file \"" << outputFile << "\" could not be opened!\n";
 		exit(1);
 	}
-    for(auto& entry: similarity_class) {
+
+    for(auto const &kv: gr->similarity_class) {
         // class
-        for(auto& t: entry.first)
+        for(auto& t: kv.first)
             out << t << " ";
         out << ": ";
         // count
-        out << entry.second << "\n";
+        out << kv.second << "\n";
     }
+
     std::cerr << "done\n";
 } 

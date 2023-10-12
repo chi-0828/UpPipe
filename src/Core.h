@@ -15,6 +15,7 @@
 #include "kseq.h"
 #include "dpu_app/dpu_def.h"
 
+#define TIME_PERF 0
 // re-define dpu_result in host for larger memory size
 // original dpu_result is defined in dpu_app/dpu_def.h
 typedef struct dpu_result_host{
@@ -28,6 +29,27 @@ using Partial_result =  std::vector<dpu_result>;
 using Partial_result_host =  std::vector<dpu_result_host>;
 Read_packet get();
 
+// global similarity class record 
+class Global_Record {
+public:
+    std::map<std::set<int16_t>, uint32_t> similarity_class;
+	std::mutex mtx;  
+
+	void insert(Partial_result_host &pr);
+};
+
+// similarity class record
+class Record {
+public:
+    std::map<std::set<int16_t>, uint32_t> similarity_class;
+	// std::mutex mtx;  
+
+	void insert(Partial_result_host &pr);
+	void kv_insert(const std::set<int16_t> &k, uint32_t n);
+};
+
+
+
 class Pipeline_worker {
 public:
     
@@ -38,8 +60,9 @@ public:
     }
 
     KmerIndex *KI;
+	Global_Record *record;
     int dpu_n;
-    void operator()(int n, KmerIndex *ki);
+    void operator()(int n, KmerIndex *ki, Global_Record *gr);
     void map();
     Partial_result_host compare();
 
@@ -52,9 +75,13 @@ class Core {
 public:
     Core(int pw_n, int dpu_n, KmerIndex *KI, std::string &readFile, std::string &outputFile) : pw_n(pw_n), dpu_n(dpu_n), KI(KI), readFile(readFile), outputFile(outputFile) {
         std::cerr << "[UpPipe] start alignment by k = " << KI->k << std::endl;
+		global_rd = new std::vector<Record>(pw_n);
+		gr = new Global_Record();
         allocate_pipeline_worker();
     }
     ~Core() {
+		delete global_rd;
+		delete gr;
         std::cerr << "[UpPipe] end alignment" << std::endl;
     }
 
@@ -63,6 +90,8 @@ public:
     KmerIndex *KI;
     std::string readFile;
     std::string outputFile;
+	std::vector<Record> *global_rd;
+	Global_Record *gr;
 
     void read_rna_file(std::string &readFile);
     void allocate_pipeline_worker();

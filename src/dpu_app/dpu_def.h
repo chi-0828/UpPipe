@@ -3,7 +3,7 @@
 #include <stdint.h>
 #define DPU_PROGRAM "obj/dpu_app/dpu"
 #define PACKET_SIZE 24
-#define READ_LEN 101
+#define READ_LEN 100
 #define WRAM_READ_LEN 112
 #define PACKET_CAPACITY (READ_LEN*PACKET_SIZE)
 #define T_LEN 16
