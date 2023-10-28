@@ -1,7 +1,24 @@
 #ifndef DQUEUE_H
 #define DQUEUE_H
 
-#include "Core.h"
+#include <atomic>
+#include <vector>
+#include <set>
+#include <deque>
+#include <mutex>
+#include "dpu_app/dpu_def.h"
+
+// re-define dpu_result in host for larger memory size
+// original dpu_result is defined in dpu_app/dpu_def.h
+typedef struct dpu_result_host{
+    int32_t kmer;
+    int32_t len;
+    std::set<int16_t> T;
+}dpu_result_host;
+
+using Read_packet = std::vector<char>;
+using Partial_result =  std::vector<dpu_result>;
+using Partial_result_host =  std::vector<dpu_result_host>;
 
 class TDeque {
 public:
@@ -11,15 +28,11 @@ public:
 
     bool empty();
 
-    void set_end();
-    bool get_end();
-
     int size();
 
     std::deque<Read_packet> theDeque;
     std::mutex theMutex;
-    std::mutex endMutex;
-    bool end = false;
 };
+
 
 #endif 

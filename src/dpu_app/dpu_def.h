@@ -2,7 +2,7 @@
 #define DPU_DEF_H
 #include <stdint.h>
 #define DPU_PROGRAM "obj/dpu_app/dpu"
-#define PACKET_SIZE 24
+#define PACKET_SIZE 12
 #define READ_LEN 100
 #define WRAM_READ_LEN 112
 #define PACKET_CAPACITY (READ_LEN*PACKET_SIZE)

@@ -28,9 +28,8 @@ int main(int argc, char** argv) {
         ParseOptionsAligment(argc-1,argv+1,opt);
         KmerIndex *KI = new KmerIndex(opt);
         KI->load(opt);
-
+        omp_set_num_threads(opt.worker_n);
         Core* core = new Core(opt.worker_n, KI->dpu_n, KI, opt.readFile, opt.output);
-        
         delete core;
         delete KI;
     }

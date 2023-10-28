@@ -4,8 +4,8 @@ OBJ_DIR := obj
 SRC_FILES := $(wildcard $(SRC_DIR)/*.cpp)
 OBJ_FILES := $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(SRC_FILES))
 INCLUDE := -I./ext/htslib/ -I.
-LDFLAGS := `dpu-pkg-config --cflags --libs dpu` ./ext/htslib/libhts.a -pthread -lz -lrt -g -O3
-CXXFLAGS := -g `dpu-pkg-config --cflags --libs dpu` -O3
+LDFLAGS := `dpu-pkg-config --cflags --libs dpu` ./ext/htslib/libhts.a -lz -lrt -g -fopenmp -O3
+CXXFLAGS := -g `dpu-pkg-config --cflags --libs dpu` -O3 -fopenmp
 
 DPU := src/dpu_app/dpu
 
@@ -18,7 +18,7 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
 	g++ -c -o $@ $< $(CXXFLAGS) $(INCLUDE)
 
 $(DPU):
-	$(MAKE) -C src/dpu_app/ TASKLETS=24
+	$(MAKE) -C src/dpu_app/ TASKLETS=12
 
 clean: 
 	rm -f $(target) obj/*.o obj/dpu_app/*

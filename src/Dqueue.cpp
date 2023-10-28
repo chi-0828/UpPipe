@@ -21,15 +21,7 @@ bool TDeque::empty() {
 }
 
 int TDeque::size() {
+    std::lock_guard<std::mutex> lock(theMutex);
     return theDeque.size();
 }
 
-void TDeque::set_end() {
-    std::lock_guard<std::mutex> lock(endMutex);
-    end = true;
-}
-
-bool TDeque::get_end() {
-    std::lock_guard<std::mutex> lock(endMutex);
-    return end;
-}
