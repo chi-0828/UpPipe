@@ -7,7 +7,7 @@
 #include "mutex.h"
 #include <barrier.h>
 
-// about 1MB read packet (from hsot)
+// about 1MB read packet (from host)
 __mram_noinit char reads[PACKET_CAPACITY];
 
 // result (to host)
