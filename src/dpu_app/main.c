@@ -13,14 +13,14 @@ __mram_noinit char reads[PACKET_CAPACITY];
 // result (to host)
 __mram_noinit dpu_result results[PACKET_SIZE];
 
-// 60 MB hash table (from hsot)
+// 60 MB hash table (from host)
 __mram_noinit uint64_t table_key[MAX_TABLE_N];
 __mram_noinit uint64_t table_value[MAX_TABLE_N];
 
-// read info (from hsot)
+// read info (from host)
 __host size_tt size_;
 
-// runing info (k, t_max)
+//running info (k, t_max)
 __host int32_t k;
 __host int32_t t_max;
 __host int32_t first_tid;
@@ -100,7 +100,7 @@ int main(){
 				assert(h != start);
 				// printf("h %llu %llu\n", h, size_);
 				int16_t wram_index = 0, flag = 0;
-				// pre-fetch more data into WRAM for reducing data movement between WRAM and MRAM
+				// pre-fetch more data into WRAM to reduce data movement between WRAM and MRAM
 				__dma_aligned uint64_t table_kmer_cache[WRAM_PREFETCH_SIZE];
 				__mram_ptr void *target_addr = (table_key + h);
 				mram_read(target_addr, &table_kmer_cache, sizeof(uint64_t)*WRAM_PREFETCH_SIZE);
