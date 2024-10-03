@@ -86,17 +86,6 @@ make -j4
             -r 40 \
             -f test/read.fa
 ```
-- Performance: UpPiep uses 40 pipeline workers
-```
-real    0m2.747s
-```
-- Performance: UpPiep uses 20 pipeline workers
-```
-real    0m3.584s
-```
-- Performance: [kallisto](https://github.com/pachterlab/kallisto)
-```
-real    0m4.003s
-```
+
 - To note that UpPipe shows its efficiency more in the large size dataset due to the porcessing-in-memory features
 
