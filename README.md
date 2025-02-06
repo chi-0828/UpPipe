@@ -9,7 +9,7 @@
 <br>
 UpPipe is an RNA abundance quantification design on a real processing-near-memory system ([UPMEM DPU](https://www.upmem.com/)); the paper of this project is published in [Design Automation Conference (DAC) 2023](https://www.dac.com/)
 
-**This implementation may not work with certain versions of the UPMEM SDK**
+**This implementation may not work with certain versions of the UPMEM SDK (no longer maintained)**
 
 ## Citation
 Liang-Chi Chen,  Chien-Chung Ho, and Yuan-Hao Chang, “UpPipe: A Novel Pipeline Management on In-Memory Processors for RNA-seq Quantification," ACM/IEEE Design Automation Conference (DAC), San Francisco, CA, USA, July 9-13, 2023.
